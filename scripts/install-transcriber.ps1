@@ -29,11 +29,11 @@ $projectPath = Join-Path $repoRoot "src\AlwaysOnTopTranscriber.Hybrid\AlwaysOnTo
 $publishDir = Join-Path $repoRoot "artifacts\publish\Transcriber-v1.2"
 
 if (-not (Test-Path $projectPath)) {
-    throw "Nie znaleziono projektu Hybrid: $projectPath"
+    throw "Hybrid project not found: $projectPath"
 }
 
 if (-not $SkipPublish) {
-    Write-Host "Publikowanie aplikacji..."
+    Write-Host "Publishing app..."
     dotnet publish $projectPath `
         -c $Configuration `
         -f $Framework `
@@ -44,15 +44,15 @@ if (-not $SkipPublish) {
 }
 
 if (-not (Test-Path $publishDir)) {
-    throw "Brak katalogu publish: $publishDir"
+    throw "Publish directory not found: $publishDir"
 }
 
-Write-Host "Instalowanie do: $InstallDir"
+Write-Host "Installing to: $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 robocopy $publishDir $InstallDir /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -gt 7) {
-    throw "Robocopy zakończył się błędem (exit code: $LASTEXITCODE)."
+    throw "Robocopy failed (exit code: $LASTEXITCODE)."
 }
 
 $exe = Get-ChildItem -Path $InstallDir -Filter "*.exe" -File |
@@ -61,7 +61,7 @@ $exe = Get-ChildItem -Path $InstallDir -Filter "*.exe" -File |
     Select-Object -First 1
 
 if (-not $exe) {
-    throw "Nie znaleziono pliku EXE po instalacji w: $InstallDir"
+    throw "EXE file not found after install in: $InstallDir"
 }
 
 $desktopPath = [Environment]::GetFolderPath("Desktop")
@@ -74,7 +74,7 @@ New-AppShortcut -ShortcutPath $desktopShortcut -TargetPath $exe.FullName -Workin
 New-AppShortcut -ShortcutPath $startShortcut -TargetPath $exe.FullName -WorkingDirectory $InstallDir
 
 Write-Host ""
-Write-Host "Instalacja zakończona."
+Write-Host "Installation completed."
 Write-Host "EXE: $($exe.FullName)"
-Write-Host "Skrót pulpit: $desktopShortcut"
-Write-Host "Skrót Start:  $startShortcut"
+Write-Host "Desktop shortcut: $desktopShortcut"
+Write-Host "Start shortcut:   $startShortcut"
