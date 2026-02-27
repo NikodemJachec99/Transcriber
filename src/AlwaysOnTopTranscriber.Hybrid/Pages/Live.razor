@@ -44,6 +44,13 @@
                 <UiPill>@LocalizationService[UiTextKeys.LiveElapsed]: @State.ElapsedText</UiPill>
             </div>
 
+            @if (State.HasAudioDropWarning)
+            {
+                <div class="ui-alert ui-alert--warning" role="alert" aria-live="assertive">
+                    @State.WarningText
+                </div>
+            }
+
             <div class="live-meter-block">
                 <div class="ui-label">@LocalizationService[UiTextKeys.LiveAudioLevel]</div>
                 <UiMeter Value="State.AudioLevelPercent" AriaLabel="@LocalizationService[UiTextKeys.LiveAudioLevel]" />

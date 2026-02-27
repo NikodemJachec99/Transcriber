@@ -389,6 +389,24 @@ textarea {
   color: var(--text-strong);
 }
 
+.ui-alert {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 690;
+  line-height: 1.42;
+}
+
+.ui-alert--warning {
+  border-color: color-mix(in srgb, var(--warning) 62%, var(--line));
+  background: color-mix(in srgb, var(--warning) 18%, var(--surface-2));
+  color: var(--text-strong);
+}
+
 .ui-meter {
   width: 100%;
   border-radius: 999px;
@@ -797,6 +815,11 @@ textarea {
 
 .mini-meter .ui-meter__progress {
   height: 7px;
+}
+
+.mini-alert {
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 /* Responsive */

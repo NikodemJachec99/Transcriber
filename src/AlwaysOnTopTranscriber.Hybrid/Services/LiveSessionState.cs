@@ -87,6 +87,12 @@ public sealed class LiveSessionState : IDisposable
 
     public string StatusText { get; private set; } = string.Empty;
 
+    public string WarningText { get; private set; } = string.Empty;
+
+    public bool HasWarning => !string.IsNullOrWhiteSpace(WarningText);
+
+    public bool HasAudioDropWarning { get; private set; }
+
     public string ElapsedText { get; private set; } = "00:00:00";
 
     public double AudioLevelPercent { get; private set; }
@@ -136,6 +142,8 @@ public sealed class LiveSessionState : IDisposable
     {
         IsRecording = isRecording;
         _warningVisible = false;
+        WarningText = string.Empty;
+        HasAudioDropWarning = false;
         StatusText = isRecording
             ? _localizationService[UiTextKeys.StatusListening]
             : _localizationService[UiTextKeys.StatusReady];
@@ -164,6 +172,8 @@ public sealed class LiveSessionState : IDisposable
     private void HandleWarningRaised(object? sender, string warning)
     {
         _warningVisible = true;
+        WarningText = warning;
+        HasAudioDropWarning = IsAudioDropWarning(warning);
         StatusText = warning;
         NotifyChanged();
     }
@@ -209,6 +219,19 @@ public sealed class LiveSessionState : IDisposable
         return string.Equals(mode.Trim(), "advanced", StringComparison.OrdinalIgnoreCase)
             ? "advanced"
             : "basic";
+    }
+
+    private static bool IsAudioDropWarning(string warning)
+    {
+        if (string.IsNullOrWhiteSpace(warning))
+        {
+            return false;
+        }
+
+        var normalized = warning.Trim().ToLowerInvariant();
+        return normalized.Contains("bufor audio osiągnął limit", StringComparison.Ordinal) ||
+               normalized.Contains("pomija część audio", StringComparison.Ordinal) ||
+               normalized.Contains("pominięto", StringComparison.Ordinal);
     }
 
     private void NotifyChanged() => Changed?.Invoke();

@@ -54,6 +54,16 @@
             <UiPill Class="mini-pill" Tone="accent">@State.StatusText</UiPill>
         </div>
 
+        @if (State.HasAudioDropWarning)
+        {
+            <div class="ui-alert ui-alert--warning mini-alert"
+                 role="alert"
+                 aria-live="assertive"
+                 @onpointerdown:stopPropagation="true">
+                @State.WarningText
+            </div>
+        }
+
         <UiMeter Value="State.AudioLevelPercent"
                  Class="mini-meter"
                  AriaLabel="@LocalizationService[UiTextKeys.LiveAudioLevel]" />
