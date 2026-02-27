@@ -1,8 +1,8 @@
 <Project>
   <PropertyGroup>
-    <!-- Wymuszenie lokalnych katalogów build/restore omija problemy ACL na domyślnych ścieżkach obj/bin. -->
-    <BaseIntermediateOutputPath>$(TEMP)\AlwaysOnTopTranscriber\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <RestorePackagesPath>$(TEMP)\AlwaysOnTopTranscriber\nuget\packages\</RestorePackagesPath>
+    <!-- Keep all build/restore caches inside the repo for predictable publish behavior. -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <RestorePackagesPath>$(MSBuildThisFileDirectory).artifacts\nuget\packages\</RestorePackagesPath>
     <RestoreAdditionalProjectSources>C:\Program Files\dotnet\library-packs</RestoreAdditionalProjectSources>
     <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
     <NuGetAudit>false</NuGetAudit>

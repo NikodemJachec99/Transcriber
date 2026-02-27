@@ -39,8 +39,14 @@ if (-not $SkipPublish) {
         -f $Framework `
         -r $RuntimeIdentifier `
         -p:WindowsPackageType=None `
+        -p:GenerateAppxPackageOnBuild=false `
+        -p:AppxPackage=false `
         -p:SelfContained=true `
         -o $publishDir
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet publish failed (exit code: $LASTEXITCODE)."
+    }
 }
 
 if (-not (Test-Path $publishDir)) {
