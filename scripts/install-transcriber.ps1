@@ -24,6 +24,22 @@ function New-AppShortcut {
     $shortcut.Save()
 }
 
+function Stop-RunningTranscriber {
+    $processNames = @(
+        "AlwaysOnTopTranscriber.Hybrid",
+        "Transcriber"
+    )
+
+    foreach ($name in $processNames) {
+        Get-Process -Name $name -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "Stopping running process: $($_.ProcessName) (PID $($_.Id))"
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Start-Sleep -Milliseconds 500
+}
+
 function Test-WindowsAppRuntimeInstalled {
     try {
         $packages = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.3*" -ErrorAction SilentlyContinue
@@ -157,12 +173,14 @@ if (-not (Test-Path $publishDir)) {
 }
 
 Write-Host "Installing to: $InstallDir"
+Stop-RunningTranscriber
+
+if (Test-Path $InstallDir) {
+    Remove-Item -Recurse -Force $InstallDir -ErrorAction Stop
+}
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-robocopy $publishDir $InstallDir /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-if ($LASTEXITCODE -gt 7) {
-    throw "Robocopy failed (exit code: $LASTEXITCODE)."
-}
+Copy-Item -Path (Join-Path $publishDir "*") -Destination $InstallDir -Recurse -Force -ErrorAction Stop
 
 $exe = Get-ChildItem -Path $InstallDir -Filter "*.exe" -File |
     Where-Object { $_.Name -notmatch "WebView2Loader|CrashPad" } |
