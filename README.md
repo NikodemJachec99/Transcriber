@@ -20,6 +20,7 @@ cd Transcriber
 Ta opcja:
 - buduje aplikację,
 - instaluje ją lokalnie,
+- instaluje wymagany `Windows App Runtime` (jeśli go brakuje),
 - tworzy skrót na pulpicie i w menu Start.
 
 Kroki:

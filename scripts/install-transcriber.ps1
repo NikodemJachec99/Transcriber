@@ -24,6 +24,48 @@ function New-AppShortcut {
     $shortcut.Save()
 }
 
+function Test-WindowsAppRuntimeInstalled {
+    try {
+        $packages = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.3*" -ErrorAction SilentlyContinue
+        return $null -ne $packages -and $packages.Count -gt 0
+    }
+    catch {
+        return $false
+    }
+}
+
+function Ensure-WindowsAppRuntime {
+    if (Test-WindowsAppRuntimeInstalled) {
+        Write-Host "Windows App Runtime 1.3 is already installed."
+        return
+    }
+
+    Write-Host "Windows App Runtime 1.3 not found. Installing prerequisite..."
+
+    $runtimeInstallerDir = Join-Path $env:TEMP "TranscriberPrerequisites"
+    $runtimeInstallerPath = Join-Path $runtimeInstallerDir "windowsappruntimeinstall-x64.exe"
+    $runtimeInstallerUrl = "https://aka.ms/windowsappsdk/1.3/latest/windowsappruntimeinstall-x64.exe"
+
+    New-Item -ItemType Directory -Force -Path $runtimeInstallerDir | Out-Null
+
+    try {
+        Invoke-WebRequest -Uri $runtimeInstallerUrl -OutFile $runtimeInstallerPath -UseBasicParsing
+        $runtimeProcess = Start-Process -FilePath $runtimeInstallerPath -ArgumentList "/quiet", "/install" -PassThru -Wait
+        if ($runtimeProcess.ExitCode -ne 0) {
+            throw "Windows App Runtime installer exit code: $($runtimeProcess.ExitCode)"
+        }
+    }
+    catch {
+        throw "Failed to install Windows App Runtime automatically. Install manually: $runtimeInstallerUrl"
+    }
+
+    if (-not (Test-WindowsAppRuntimeInstalled)) {
+        throw "Windows App Runtime still not detected after install. Install manually: $runtimeInstallerUrl"
+    }
+
+    Write-Host "Windows App Runtime installed."
+}
+
 function Invoke-Dotnet {
     param(
         [Parameter(Mandatory = $true)][string[]]$Arguments
@@ -130,6 +172,8 @@ $exe = Get-ChildItem -Path $InstallDir -Filter "*.exe" -File |
 if (-not $exe) {
     throw "EXE file not found after install in: $InstallDir"
 }
+
+Ensure-WindowsAppRuntime
 
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $startMenuPath = [Environment]::GetFolderPath("Programs")
