@@ -53,7 +53,7 @@ function Test-WindowsAppRuntimeInstalled {
 function Ensure-WindowsAppRuntime {
     if (Test-WindowsAppRuntimeInstalled) {
         Write-Host "Windows App Runtime 1.3 is already installed."
-        return
+        return $true
     }
 
     Write-Host "Windows App Runtime 1.3 not found. Installing prerequisite..."
@@ -72,14 +72,53 @@ function Ensure-WindowsAppRuntime {
         }
     }
     catch {
-        throw "Failed to install Windows App Runtime automatically. Install manually: $runtimeInstallerUrl"
+        Write-Warning "Runtime EXE install failed: $($_.Exception.Message)"
     }
 
-    if (-not (Test-WindowsAppRuntimeInstalled)) {
-        throw "Windows App Runtime still not detected after install. Install manually: $runtimeInstallerUrl"
+    if (Test-WindowsAppRuntimeInstalled) {
+        Write-Host "Windows App Runtime installed."
+        return $true
     }
 
-    Write-Host "Windows App Runtime installed."
+    $wingetCommand = Get-Command winget -ErrorAction SilentlyContinue
+    if ($null -ne $wingetCommand) {
+        try {
+            Write-Host "Retrying prerequisite install via winget..."
+            $wingetProcess = Start-Process -FilePath $wingetCommand.Source `
+                -ArgumentList @(
+                    "install",
+                    "--id", "Microsoft.WindowsAppRuntime.1.3",
+                    "--source", "winget",
+                    "--accept-source-agreements",
+                    "--accept-package-agreements",
+                    "--silent"
+                ) `
+                -PassThru -Wait
+            if ($wingetProcess.ExitCode -ne 0) {
+                Write-Warning "winget install exited with code $($wingetProcess.ExitCode)."
+            }
+        }
+        catch {
+            Write-Warning "winget install failed: $($_.Exception.Message)"
+        }
+    }
+
+    if (Test-WindowsAppRuntimeInstalled) {
+        Write-Host "Windows App Runtime installed."
+        return $true
+    }
+
+    Write-Warning "Automatic Runtime install failed. Opening manual installer page..."
+    try {
+        Start-Process $runtimeInstallerUrl | Out-Null
+    }
+    catch {
+        # Ignore browser launch errors.
+    }
+
+    Write-Warning "Install manually, then rerun this script:"
+    Write-Warning $runtimeInstallerUrl
+    return $false
 }
 
 function Invoke-Dotnet {
@@ -191,7 +230,7 @@ if (-not $exe) {
     throw "EXE file not found after install in: $InstallDir"
 }
 
-Ensure-WindowsAppRuntime
+$runtimeReady = Ensure-WindowsAppRuntime
 
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $startMenuPath = [Environment]::GetFolderPath("Programs")
@@ -207,3 +246,8 @@ Write-Host "Installation completed."
 Write-Host "EXE: $($exe.FullName)"
 Write-Host "Desktop shortcut: $desktopShortcut"
 Write-Host "Start shortcut:   $startShortcut"
+if (-not $runtimeReady) {
+    Write-Host ""
+    Write-Warning "App installed, but Windows App Runtime is still missing."
+    Write-Warning "Install Runtime and rerun installer before first launch."
+}
