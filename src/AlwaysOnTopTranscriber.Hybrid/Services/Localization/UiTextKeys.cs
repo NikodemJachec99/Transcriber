@@ -90,6 +90,7 @@ public static class UiTextKeys
     public const string SettingsModelDownloadError = "settings.model.download.error";
     public const string SettingsModelDownloadCanceled = "settings.model.download.canceled";
     public const string SettingsModelMissing = "settings.model.missing";
+    public const string SettingsModelFallbackApplied = "settings.model.fallback_applied";
     public const string SettingsModelName = "settings.model.name";
     public const string SettingsModelPath = "settings.model.path";
     public const string SettingsChunkLength = "settings.chunk_length";

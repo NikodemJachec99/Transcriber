@@ -123,8 +123,22 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             var modelPath = ResolveModelPath(_activeSettings);
             if (!File.Exists(modelPath))
             {
-                throw new FileNotFoundException(
-                    $"Brak modelu lokalnego: {modelPath}. Pobierz model w Ustawieniach.");
+                if (TryResolveFallbackModelPath(out var fallbackPath, out var fallbackModelName))
+                {
+                    modelPath = fallbackPath;
+                    _modelName = fallbackModelName;
+                    _activeSettings.ModelName = fallbackModelName;
+                    _activeSettings.ModelPath = null;
+                    await _settingsService.SaveAsync(_activeSettings, CancellationToken.None).ConfigureAwait(false);
+                    WarningRaised?.Invoke(
+                        this,
+                        $"Wybrany model nie był dostępny lokalnie. Użyto modelu: {fallbackModelName}.");
+                }
+                else
+                {
+                    throw new FileNotFoundException(
+                        $"Brak modelu lokalnego: {modelPath}. Pobierz model w Ustawieniach.");
+                }
             }
 
             _frameBufferCapacity = Math.Clamp(
@@ -518,6 +532,43 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             ? "ggml-medium-q5_0.bin"
             : $"ggml-{settings.ModelName}.bin";
         return Path.Combine(_appPaths.ModelsDirectory, mappedFileName);
+    }
+
+    private bool TryResolveFallbackModelPath(out string modelPath, out string modelName)
+    {
+        static (string Name, string FileName)[] OrderedKnownModels() =>
+        [
+            ("tiny", "ggml-tiny.bin"),
+            ("base", "ggml-base.bin"),
+            ("small", "ggml-small.bin"),
+            ("basics", "ggml-medium-q5_0.bin")
+        ];
+
+        foreach (var candidate in OrderedKnownModels())
+        {
+            var path = Path.Combine(_appPaths.ModelsDirectory, candidate.FileName);
+            if (File.Exists(path))
+            {
+                modelPath = path;
+                modelName = candidate.Name;
+                return true;
+            }
+        }
+
+        var anyModel = Directory.EnumerateFiles(_appPaths.ModelsDirectory, "*.bin")
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(anyModel))
+        {
+            modelPath = anyModel;
+            modelName = Path.GetFileNameWithoutExtension(anyModel)
+                .Replace("ggml-", string.Empty, StringComparison.OrdinalIgnoreCase);
+            return true;
+        }
+
+        modelPath = string.Empty;
+        modelName = string.Empty;
+        return false;
     }
 
     private static string? NormalizeOptionalPath(string? path)

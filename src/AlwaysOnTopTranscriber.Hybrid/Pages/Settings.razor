@@ -16,7 +16,7 @@
                 <h3>@LocalizationService[UiTextKeys.SettingsSectionGeneral]</h3>
                 <div class="ui-stack">
                     <label class="ui-checkbox">
-                        <input type="checkbox" checked="@DarkMode" @onchange="OnDarkModeChanged" />
+                        <input type="checkbox" checked="@DarkMode" @onchange="OnDarkModeChangedAsync" />
                         <span>@LocalizationService[UiTextKeys.SettingsDarkMode]</span>
                     </label>
                 </div>
@@ -26,7 +26,7 @@
                 <h3>@LocalizationService[UiTextKeys.SettingsSectionModel]</h3>
                 <div class="ui-stack">
                     <UiField Label="@LocalizationService[UiTextKeys.SettingsModelSelect]" For="settings-model-name">
-                        <select id="settings-model-name" class="ui-input" @bind="ModelName">
+                        <select id="settings-model-name" class="ui-input" @bind="ModelName" @bind:after="OnModelNameChangedAsync">
                             @foreach (var name in KnownModelNames)
                             {
                                 <option value="@name">@name</option>
@@ -35,7 +35,7 @@
                     </UiField>
 
                     <UiField Label="@LocalizationService[UiTextKeys.SettingsModelPath]" For="settings-model-path">
-                        <input id="settings-model-path" class="ui-input" @bind="ModelPath" @bind:event="oninput" />
+                        <input id="settings-model-path" class="ui-input" @bind="ModelPath" @bind:after="OnModelPathChangedAsync" />
                     </UiField>
 
                     <UiField Label="@LocalizationService[UiTextKeys.SettingsModelDownloadSelect]" For="settings-model-download-name">
@@ -123,14 +123,14 @@
                 <h3>@LocalizationService[UiTextKeys.SettingsSectionUi]</h3>
                 <div class="ui-stack">
                     <UiField Label="@LocalizationService[UiTextKeys.UiLanguageLabel]" For="settings-ui-language">
-                        <select id="settings-ui-language" class="ui-input" @bind="SelectedUiLanguage">
+                        <select id="settings-ui-language" class="ui-input" @bind="SelectedUiLanguage" @bind:after="OnUiLanguageChangedAsync">
                             <option value="pl">@LocalizationService[UiTextKeys.UiLanguagePl]</option>
                             <option value="en">@LocalizationService[UiTextKeys.UiLanguageEn]</option>
                         </select>
                     </UiField>
 
                     <UiField Label="@LocalizationService[UiTextKeys.UiModeLabel]" For="settings-ui-mode">
-                        <select id="settings-ui-mode" class="ui-input" @bind="SelectedUiMode">
+                        <select id="settings-ui-mode" class="ui-input" @bind="SelectedUiMode" @bind:after="OnUiModeChangedAsync">
                             <option value="basic">@LocalizationService[UiTextKeys.UiModeBasic]</option>
                             <option value="advanced">@LocalizationService[UiTextKeys.UiModeAdvanced]</option>
                         </select>
@@ -149,15 +149,16 @@
                                type="number"
                                min="3"
                                max="60"
-                               @bind="ChunkLengthSeconds" />
+                               @bind="ChunkLengthSeconds"
+                               @bind:after="OnChunkLengthChangedAsync" />
                     </UiField>
 
                     <UiField Label="@LocalizationService[UiTextKeys.SettingsSilenceThreshold]" For="settings-silence-threshold">
-                        <input id="settings-silence-threshold" class="ui-input" @bind="SilenceRmsThresholdText" @bind:event="oninput" />
+                        <input id="settings-silence-threshold" class="ui-input" @bind="SilenceRmsThresholdText" @bind:after="OnSilenceThresholdChangedAsync" />
                     </UiField>
 
                     <label class="ui-checkbox">
-                        <input type="checkbox" checked="@AutoPunctuation" @onchange="OnAutoPunctuationChanged" />
+                        <input type="checkbox" checked="@AutoPunctuation" @onchange="OnAutoPunctuationChangedAsync" />
                         <span>@LocalizationService[UiTextKeys.SettingsAutoPunctuation]</span>
                     </label>
                 </div>
@@ -191,29 +192,38 @@
     private double DownloadProgressPercent { get; set; }
     private string DownloadProgressText { get; set; } = string.Empty;
     private CancellationTokenSource? DownloadCts { get; set; }
+    private bool IsInitializing { get; set; }
 
     private bool IsAdvancedMode => string.Equals(SelectedUiMode, "advanced", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
+        IsInitializing = true;
         LocalizationService.LanguageChanged += HandleLanguageChanged;
         LiveState.Changed += HandleLiveStateChanged;
 
-        var settings = SettingsService.Load();
-        DarkMode = settings.DarkMode;
-        ModelName = settings.ModelName;
-        DownloadModelName = settings.ModelName;
-        ModelPath = settings.ModelPath ?? string.Empty;
-        SelectedUiLanguage = NormalizeUiLanguage(settings.UiLanguage);
-        SelectedUiMode = NormalizeUiMode(settings.UiMode);
-        ChunkLengthSeconds = Math.Clamp(settings.ChunkLengthSeconds, 3, 60);
-        SilenceRmsThresholdText = settings.SilenceRmsThreshold.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
-        AutoPunctuation = settings.AutoPunctuation;
-        StatusText = LocalizationService[UiTextKeys.StatusReady];
-        StatusTone = "neutral";
-        DownloadProgressText = LocalizationService[UiTextKeys.StatusReady];
+        try
+        {
+            var settings = SettingsService.Load();
+            DarkMode = settings.DarkMode;
+            ModelName = settings.ModelName;
+            DownloadModelName = settings.ModelName;
+            ModelPath = settings.ModelPath ?? string.Empty;
+            SelectedUiLanguage = NormalizeUiLanguage(settings.UiLanguage);
+            SelectedUiMode = NormalizeUiMode(settings.UiMode);
+            ChunkLengthSeconds = Math.Clamp(settings.ChunkLengthSeconds, 3, 60);
+            SilenceRmsThresholdText = settings.SilenceRmsThreshold.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+            AutoPunctuation = settings.AutoPunctuation;
+            StatusText = LocalizationService[UiTextKeys.StatusReady];
+            StatusTone = "neutral";
+            DownloadProgressText = LocalizationService[UiTextKeys.StatusReady];
 
-        await RefreshModelsAsync();
+            await RefreshModelsAsync();
+        }
+        finally
+        {
+            IsInitializing = false;
+        }
     }
 
     public void Dispose()
@@ -224,55 +234,23 @@
         LiveState.Changed -= HandleLiveStateChanged;
     }
 
-    private void OnDarkModeChanged(ChangeEventArgs args)
+    private async Task OnDarkModeChangedAsync(ChangeEventArgs args)
     {
         DarkMode = args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
         ThemeService.ApplyTheme(DarkMode, persist: true);
+        await PersistCurrentSettingsAsync().ConfigureAwait(false);
     }
 
-    private void OnAutoPunctuationChanged(ChangeEventArgs args)
+    private async Task OnAutoPunctuationChangedAsync(ChangeEventArgs args)
     {
         AutoPunctuation = args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        await PersistCurrentSettingsAsync().ConfigureAwait(false);
     }
 
     private async Task SaveAsync()
     {
-        var settings = SettingsService.Load();
-        settings.DarkMode = DarkMode;
-        settings.ModelName = string.IsNullOrWhiteSpace(ModelName) ? "base" : ModelName.Trim();
-        var normalizedModelPath = NormalizeOptionalPath(ModelPath);
-        if (normalizedModelPath is not null && !File.Exists(normalizedModelPath))
-        {
-            StatusText = $"{LocalizationService[UiTextKeys.StatusError]}: {normalizedModelPath}";
-            StatusTone = "danger";
-            return;
-        }
-
-        var selectedKnownModel = KnownModels.FirstOrDefault(model =>
-            string.Equals(model.Name, settings.ModelName, StringComparison.OrdinalIgnoreCase));
-        if (normalizedModelPath is null && selectedKnownModel is not null && !selectedKnownModel.IsDownloaded)
-        {
-            StatusText = LocalizationService[UiTextKeys.SettingsModelMissing];
-            StatusTone = "danger";
-            return;
-        }
-
-        settings.ModelPath = normalizedModelPath;
-        settings.UiLanguage = NormalizeUiLanguage(SelectedUiLanguage);
-        settings.UiMode = NormalizeUiMode(SelectedUiMode);
-        settings.ChunkLengthSeconds = Math.Clamp(ChunkLengthSeconds, 3, 60);
-        settings.SilenceRmsThreshold = ParseSilenceThreshold(SilenceRmsThresholdText, fallback: settings.SilenceRmsThreshold);
-        settings.AutoPunctuation = AutoPunctuation;
-
-        await SettingsService.SaveAsync(settings, CancellationToken.None);
-        ThemeService.ApplyTheme(settings.DarkMode, persist: false);
-
-        LocalizationService.SetLanguage(settings.UiLanguage, persist: false);
-        LiveState.UiMode = settings.UiMode;
-
-        StatusText = LocalizationService[UiTextKeys.SettingsSaved];
-        StatusTone = "success";
-        await InvokeAsync(StateHasChanged);
+        await PersistCurrentSettingsAsync(updateLanguageRuntime: true, updateUiModeRuntime: true, showSavedStatus: true)
+            .ConfigureAwait(false);
     }
 
     private async Task RefreshModelsAsync()
@@ -356,9 +334,8 @@
             await ModelManager.DownloadAsync(DownloadModelName.Trim(), progress, DownloadCts.Token);
             ModelName = DownloadModelName.Trim();
 
-            var settings = SettingsService.Load();
-            settings.ModelName = ModelName;
-            await SettingsService.SaveAsync(settings, CancellationToken.None);
+            await PersistCurrentSettingsAsync(updateLanguageRuntime: false, updateUiModeRuntime: false, showSavedStatus: false)
+                .ConfigureAwait(false);
 
             StatusText = $"{LocalizationService[UiTextKeys.SettingsModelDownloadDone]}: {DownloadModelName} (aktywny)";
             StatusTone = "success";
@@ -393,6 +370,110 @@
     private void CancelDownload()
     {
         DownloadCts?.Cancel();
+    }
+
+    private Task OnModelNameChangedAsync() => PersistCurrentSettingsAsync();
+
+    private Task OnModelPathChangedAsync() => PersistCurrentSettingsAsync();
+
+    private Task OnUiLanguageChangedAsync() => PersistCurrentSettingsAsync(updateLanguageRuntime: true);
+
+    private Task OnUiModeChangedAsync() => PersistCurrentSettingsAsync(updateUiModeRuntime: true);
+
+    private Task OnChunkLengthChangedAsync() => PersistCurrentSettingsAsync();
+
+    private Task OnSilenceThresholdChangedAsync() => PersistCurrentSettingsAsync();
+
+    private async Task PersistCurrentSettingsAsync(
+        bool updateLanguageRuntime = false,
+        bool updateUiModeRuntime = false,
+        bool showSavedStatus = true)
+    {
+        if (IsInitializing)
+        {
+            return;
+        }
+
+        var settings = SettingsService.Load();
+        settings.DarkMode = DarkMode;
+
+        var normalizedModelPath = NormalizeOptionalPath(ModelPath);
+        if (normalizedModelPath is not null && !File.Exists(normalizedModelPath))
+        {
+            StatusText = $"{LocalizationService[UiTextKeys.StatusError]}: {normalizedModelPath}";
+            StatusTone = "danger";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        settings.ModelPath = normalizedModelPath;
+        settings.ModelName = ResolvePersistableModelName(out var fallbackModelName);
+        ModelName = settings.ModelName;
+
+        settings.UiLanguage = NormalizeUiLanguage(SelectedUiLanguage);
+        settings.UiMode = NormalizeUiMode(SelectedUiMode);
+        settings.ChunkLengthSeconds = Math.Clamp(ChunkLengthSeconds, 3, 60);
+        settings.SilenceRmsThreshold = ParseSilenceThreshold(SilenceRmsThresholdText, fallback: settings.SilenceRmsThreshold);
+        settings.AutoPunctuation = AutoPunctuation;
+
+        await SettingsService.SaveAsync(settings, CancellationToken.None).ConfigureAwait(false);
+
+        ThemeService.ApplyTheme(settings.DarkMode, persist: false);
+        if (updateLanguageRuntime)
+        {
+            LocalizationService.SetLanguage(settings.UiLanguage, persist: false);
+        }
+
+        if (updateUiModeRuntime)
+        {
+            LiveState.UiMode = settings.UiMode;
+        }
+
+        if (showSavedStatus)
+        {
+            if (!string.IsNullOrWhiteSpace(fallbackModelName))
+            {
+                var fallbackTemplate = LocalizationService[UiTextKeys.SettingsModelFallbackApplied];
+                var fallbackText = fallbackTemplate.Replace("{model}", fallbackModelName, StringComparison.OrdinalIgnoreCase);
+                StatusText = $"{LocalizationService[UiTextKeys.SettingsSaved]} {fallbackText}";
+            }
+            else
+            {
+                StatusText = LocalizationService[UiTextKeys.SettingsSaved];
+            }
+
+            StatusTone = "success";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string ResolvePersistableModelName(out string? fallbackModelName)
+    {
+        fallbackModelName = null;
+        var selected = string.IsNullOrWhiteSpace(ModelName) ? "base" : ModelName.Trim();
+        var selectedModel = KnownModels.FirstOrDefault(model =>
+            string.Equals(model.Name, selected, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(ModelPath))
+        {
+            return selected;
+        }
+
+        if (selectedModel is null || selectedModel.IsDownloaded)
+        {
+            return selected;
+        }
+
+        var fallback = KnownModels
+            .FirstOrDefault(static model => model.IsDownloaded)?.Name;
+        if (!string.IsNullOrWhiteSpace(fallback))
+        {
+            fallbackModelName = fallback;
+            return fallback;
+        }
+
+        return selected;
     }
 
     private static string NormalizeUiLanguage(string? language)
