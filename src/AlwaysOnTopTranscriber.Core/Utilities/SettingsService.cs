@@ -33,7 +33,7 @@ public sealed class SettingsService : ISettingsService
         {
             if (!File.Exists(_appPaths.SettingsPath))
             {
-                var defaults = new AppSettings();
+                var defaults = Normalize(new AppSettings());
                 SaveSync(defaults);
                 return defaults;
             }
@@ -45,7 +45,7 @@ public sealed class SettingsService : ISettingsService
                 return new AppSettings();
             }
 
-            return loaded;
+            return Normalize(loaded);
         }
         catch (Exception ex)
         {
@@ -59,6 +59,7 @@ public sealed class SettingsService : ISettingsService
         await _ioLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            Normalize(settings);
             settings.UpdatedAtUtc = DateTimeOffset.UtcNow;
             var json = JsonSerializer.Serialize(settings, _jsonOptions);
             var temp = $"{_appPaths.SettingsPath}.tmp";
@@ -74,9 +75,18 @@ public sealed class SettingsService : ISettingsService
 
     private void SaveSync(AppSettings settings)
     {
+        Normalize(settings);
         settings.UpdatedAtUtc = DateTimeOffset.UtcNow;
         var json = JsonSerializer.Serialize(settings, _jsonOptions);
         File.WriteAllText(_appPaths.SettingsPath, json);
         SettingsChanged?.Invoke(this, settings);
+    }
+
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        settings.MaxBufferedAudioFrames = Math.Clamp(settings.MaxBufferedAudioFrames, 256, 4096);
+        settings.ChunkLengthSeconds = Math.Clamp(settings.ChunkLengthSeconds, 3, 30);
+        settings.SilenceRmsThreshold = Math.Clamp(settings.SilenceRmsThreshold, 0.0005f, 0.05f);
+        return settings;
     }
 }

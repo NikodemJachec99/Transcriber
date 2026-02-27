@@ -19,6 +19,11 @@ namespace AlwaysOnTopTranscriber.Core.Sessions;
 
 public sealed class TranscriptionSessionService : ITranscriptionSessionService, IDisposable
 {
+    private const int MinFrameBufferCapacity = 256;
+    private const int MaxFrameBufferCapacity = 4096;
+    private const int DefaultFrameBufferCapacity = 2048;
+    private const int WarningThrottleMs = 5000;
+
     private readonly IAudioCaptureService _audioCaptureService;
     private readonly AudioChunker _audioChunker;
     private readonly ITranscriptionEngineFactory _engineFactory;
@@ -49,8 +54,21 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
     private long _chunksDequeued;
     private long _chunksProcessed;
     private long _processingLagTicks;
+    private long _framesDropped;
+    private long _lastFrameBufferWarningTick;
+    private long _lastChunkQueueWarningTick;
+    private long _transcriptVersion;
+    private long _cachedTranscriptVersion;
     private float _currentAudioLevel;
     private float _smoothedAudioLevel;
+    private int _frameBufferCapacity = DefaultFrameBufferCapacity;
+    private IReadOnlyList<TranscriptSegment> _cachedSegments = Array.Empty<TranscriptSegment>();
+    private IReadOnlyList<string> _cachedPreviewLinesOldestFirst = Array.Empty<string>();
+    private IReadOnlyList<string> _cachedPreviewLinesNewestFirst = Array.Empty<string>();
+    private string _cachedFullText = string.Empty;
+    private TranscriptDisplayMode _cachedDisplayMode = TranscriptDisplayMode.AppendAndCorrect;
+    private string _cachedLineSeparator = "\n\n";
+    private readonly object _cacheSync = new();
 
     public TranscriptionSessionService(
         IAudioCaptureService audioCaptureService,
@@ -109,10 +127,16 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
                     $"Brak modelu lokalnego: {modelPath}. Pobierz model w Ustawieniach.");
             }
 
-            _frameChannel = Channel.CreateUnbounded<AudioFrame>(new UnboundedChannelOptions
+            _frameBufferCapacity = Math.Clamp(
+                _activeSettings.MaxBufferedAudioFrames,
+                MinFrameBufferCapacity,
+                MaxFrameBufferCapacity);
+
+            _frameChannel = Channel.CreateBounded<AudioFrame>(new BoundedChannelOptions(_frameBufferCapacity)
             {
                 SingleReader = true,
-                SingleWriter = false
+                SingleWriter = false,
+                FullMode = BoundedChannelFullMode.Wait
             });
             _chunkChannel = Channel.CreateBounded<AudioChunk>(new BoundedChannelOptions(32)
             {
@@ -220,6 +244,15 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             PublishUpdate();
             SessionSaved?.Invoke(this, session);
 
+            var droppedFrames = Interlocked.Read(ref _framesDropped);
+            if (droppedFrames > 0)
+            {
+                WarningRaised?.Invoke(
+                    this,
+                    $"Sesja zapisana, ale pominięto {droppedFrames} ramek audio z powodu przeciążenia. Dla długich sesji wybierz lżejszy model.");
+                _logger.LogWarning("Session {Name}: dropped {DroppedFrames} audio frames due to frame buffer pressure.", _sessionName, droppedFrames);
+            }
+
             if (_pipelineError is not null)
             {
                 WarningRaised?.Invoke(this, $"Sesja zatrzymana po błędzie: {_pipelineError.Message}");
@@ -257,7 +290,10 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             return;
         }
 
-        WarningRaised?.Invoke(this, "Bufor audio jest przeciążony. Część danych została pominięta.");
+        Interlocked.Increment(ref _framesDropped);
+        RaiseThrottledWarning(
+            ref _lastFrameBufferWarningTick,
+            $"Bufor audio osiągnął limit ({_frameBufferCapacity} ramek). Aplikacja pomija część audio, żeby nie zużywać całej pamięci RAM.");
     }
 
     private void OnCaptureWarning(object? sender, string warning)
@@ -289,7 +325,9 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
                 var pendingChunks = Math.Max(0, Interlocked.Read(ref _chunksEnqueued) - Interlocked.Read(ref _chunksDequeued));
                 if (pendingChunks >= 24)
                 {
-                    WarningRaised?.Invoke(this, "Kolejka transkrypcji rośnie. Rozważ mniejszy model lub dłuższy chunk.");
+                    RaiseThrottledWarning(
+                        ref _lastChunkQueueWarningTick,
+                        "Kolejka transkrypcji rośnie. Rozważ mniejszy model lub dłuższy chunk.");
                 }
 
                 await _chunkChannel.Writer.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
@@ -341,6 +379,7 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
                 var lag = elapsedNow - (chunk.StartOffset + chunk.Duration);
                 Interlocked.Exchange(ref _processingLagTicks, Math.Max(0, lag.Ticks));
                 _aggregator.Apply(result);
+                Interlocked.Increment(ref _transcriptVersion);
                 PublishUpdate();
             }
         }
@@ -363,13 +402,16 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         var elapsed = IsRecording
             ? DateTimeOffset.UtcNow - _sessionStartUtc
             : TimeSpan.Zero;
-        var fullText = BuildTranscriptTextFromSettings();
-        var previewNewestFirst = _activeSettings?.TranscriptDisplayMode == TranscriptDisplayMode.AppendAbove;
+        var mode = _activeSettings?.TranscriptDisplayMode ?? TranscriptDisplayMode.AppendAndCorrect;
+        var separator = _activeSettings?.LineSeparator ?? "\n\n";
+        var previewNewestFirst = mode == TranscriptDisplayMode.AppendAbove;
+
+        var (segments, previewLines, fullText) = GetCachedTranscriptView(mode, separator, previewNewestFirst);
 
         var update = new LiveTranscriptUpdate
         {
-            Segments = _aggregator.Snapshot(),
-            PreviewLines = _aggregator.GetPreviewLines(6, previewNewestFirst),
+            Segments = segments,
+            PreviewLines = previewLines,
             FullText = fullText,
             Elapsed = elapsed,
             CurrentAudioLevel = Volatile.Read(ref _currentAudioLevel),
@@ -397,6 +439,52 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         var mode = _activeSettings?.TranscriptDisplayMode ?? TranscriptDisplayMode.AppendAndCorrect;
         var separator = _activeSettings?.LineSeparator ?? "\n\n";
         return _aggregator.BuildTranscriptText(mode, separator);
+    }
+
+    private (IReadOnlyList<TranscriptSegment> Segments, IReadOnlyList<string> PreviewLines, string FullText) GetCachedTranscriptView(
+        TranscriptDisplayMode mode,
+        string separator,
+        bool previewNewestFirst)
+    {
+        var version = Interlocked.Read(ref _transcriptVersion);
+
+        lock (_cacheSync)
+        {
+            if (_cachedTranscriptVersion != version)
+            {
+                _cachedSegments = _aggregator.Snapshot();
+                _cachedPreviewLinesOldestFirst = _aggregator.GetPreviewLines(6, newestFirst: false);
+                _cachedPreviewLinesNewestFirst = _aggregator.GetPreviewLines(6, newestFirst: true);
+                _cachedFullText = _aggregator.BuildTranscriptText(mode, separator);
+                _cachedDisplayMode = mode;
+                _cachedLineSeparator = separator;
+                _cachedTranscriptVersion = version;
+            }
+            else if (_cachedDisplayMode != mode || !string.Equals(_cachedLineSeparator, separator, StringComparison.Ordinal))
+            {
+                _cachedFullText = _aggregator.BuildTranscriptText(mode, separator);
+                _cachedDisplayMode = mode;
+                _cachedLineSeparator = separator;
+            }
+
+            var preview = previewNewestFirst ? _cachedPreviewLinesNewestFirst : _cachedPreviewLinesOldestFirst;
+            return (_cachedSegments, preview, _cachedFullText);
+        }
+    }
+
+    private void RaiseThrottledWarning(ref long lastWarningTickField, string message)
+    {
+        var nowTick = Environment.TickCount64;
+        var lastWarningTick = Interlocked.Read(ref lastWarningTickField);
+        if (nowTick - lastWarningTick < WarningThrottleMs)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref lastWarningTickField, nowTick, lastWarningTick) == lastWarningTick)
+        {
+            WarningRaised?.Invoke(this, message);
+        }
     }
 
     private string ResolveModelPath(AppSettings settings)
@@ -468,9 +556,24 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         Interlocked.Exchange(ref _chunksEnqueued, 0);
         Interlocked.Exchange(ref _chunksDequeued, 0);
         Interlocked.Exchange(ref _chunksProcessed, 0);
+        Interlocked.Exchange(ref _framesDropped, 0);
         Interlocked.Exchange(ref _processingLagTicks, 0);
+        Interlocked.Exchange(ref _lastFrameBufferWarningTick, 0);
+        Interlocked.Exchange(ref _lastChunkQueueWarningTick, 0);
+        Interlocked.Exchange(ref _transcriptVersion, 0);
+        Interlocked.Exchange(ref _cachedTranscriptVersion, -1);
         Volatile.Write(ref _currentAudioLevel, 0);
         Volatile.Write(ref _smoothedAudioLevel, 0);
+
+        lock (_cacheSync)
+        {
+            _cachedSegments = Array.Empty<TranscriptSegment>();
+            _cachedPreviewLinesOldestFirst = Array.Empty<string>();
+            _cachedPreviewLinesNewestFirst = Array.Empty<string>();
+            _cachedFullText = string.Empty;
+            _cachedDisplayMode = TranscriptDisplayMode.AppendAndCorrect;
+            _cachedLineSeparator = "\n\n";
+        }
     }
 
     private async IAsyncEnumerable<AudioFrame> ReadFramesAsync(

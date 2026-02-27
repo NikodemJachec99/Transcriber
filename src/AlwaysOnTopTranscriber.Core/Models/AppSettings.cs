@@ -18,6 +18,8 @@ public sealed class AppSettings
 
     public string Language { get; set; } = "auto";
 
+    public int MaxBufferedAudioFrames { get; set; } = 2048;
+
     public TranscriptDisplayMode TranscriptDisplayMode { get; set; } = TranscriptDisplayMode.AppendAndCorrect;
 
     public string LineSeparator { get; set; } = "\n\n";

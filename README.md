@@ -58,6 +58,11 @@ Nadpisanie ścieżki:
 - Możesz też wskazać własny plik modelu (`.bin`) w ustawieniach.
 - Domyślny katalog modeli: `%AppData%\Transcriber\models`.
 
+## Stabilność długich nagrań (8 GB RAM)
+- Pipeline ma limit bufora ramek audio (`MaxBufferedAudioFrames`, domyślnie `2048`), więc RAM nie rośnie bez końca.
+- Gdy CPU jest za słabe dla wybranego modelu, aplikacja pomija nadmiar audio zamiast crashować.
+- Dla 3-4h sesji rekomendowane: model `tiny`/`base` i chunk `10-15s`.
+
 ## Automatyczna instalacja (aplikacja + skrót na pulpicie)
 Installer publikuje aplikację, kopiuje ją do lokalnego katalogu użytkownika i tworzy skróty:
 - pulpit użytkownika,
