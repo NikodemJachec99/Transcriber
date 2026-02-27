@@ -354,7 +354,13 @@
         try
         {
             await ModelManager.DownloadAsync(DownloadModelName.Trim(), progress, DownloadCts.Token);
-            StatusText = $"{LocalizationService[UiTextKeys.SettingsModelDownloadDone]}: {DownloadModelName}";
+            ModelName = DownloadModelName.Trim();
+
+            var settings = SettingsService.Load();
+            settings.ModelName = ModelName;
+            await SettingsService.SaveAsync(settings, CancellationToken.None);
+
+            StatusText = $"{LocalizationService[UiTextKeys.SettingsModelDownloadDone]}: {DownloadModelName} (aktywny)";
             StatusTone = "success";
             DownloadProgressPercent = 100;
             await RefreshModelsAsync();

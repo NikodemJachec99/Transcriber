@@ -115,18 +115,29 @@ public sealed class LiveSessionState : IDisposable
 
     public async Task ToggleRecordingAsync()
     {
-        _settings.Language = SelectedLanguage;
-        await _settingsService.SaveAsync(_settings, CancellationToken.None).ConfigureAwait(false);
-
-        if (IsRecording)
+        try
         {
-            await _sessionService.StopAsync().ConfigureAwait(false);
-            SessionName = BuildDefaultSessionName();
-            NotifyChanged();
-            return;
-        }
+            _settings.Language = SelectedLanguage;
+            await _settingsService.SaveAsync(_settings, CancellationToken.None).ConfigureAwait(false);
 
-        await _sessionService.StartAsync(SessionName).ConfigureAwait(false);
+            if (IsRecording)
+            {
+                await _sessionService.StopAsync().ConfigureAwait(false);
+                SessionName = BuildDefaultSessionName();
+                NotifyChanged();
+                return;
+            }
+
+            await _sessionService.StartAsync(SessionName).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _warningVisible = true;
+            WarningText = ex.Message;
+            HasAudioDropWarning = IsAudioDropWarning(ex.Message);
+            StatusText = ex.Message;
+            NotifyChanged();
+        }
     }
 
     public void Dispose()
