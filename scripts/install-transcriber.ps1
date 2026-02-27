@@ -24,6 +24,39 @@ function New-AppShortcut {
     $shortcut.Save()
 }
 
+function Invoke-PublishAttempt {
+    param(
+        [Parameter(Mandatory = $true)][string]$Mode,
+        [Parameter(Mandatory = $true)][string[]]$ExtraArgs
+    )
+
+    if (Test-Path $publishDir) {
+        Remove-Item -Recurse -Force $publishDir -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "Publish mode: $Mode"
+
+    $publishArgs = @(
+        "publish", $projectPath,
+        "-c", $Configuration,
+        "-f", $Framework,
+        "-r", $RuntimeIdentifier,
+        "-p:WindowsPackageType=None",
+        "-p:GenerateAppxPackageOnBuild=false",
+        "-p:AppxPackage=false",
+        "-o", $publishDir
+    ) + $ExtraArgs
+
+    & dotnet @publishArgs
+
+    if ($LASTEXITCODE -eq 0 -and (Test-Path $publishDir)) {
+        return $true
+    }
+
+    Write-Warning "Publish attempt '$Mode' failed (exit code: $LASTEXITCODE)."
+    return $false
+}
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repoRoot "src\AlwaysOnTopTranscriber.Hybrid\AlwaysOnTopTranscriber.Hybrid.csproj"
 $publishDir = Join-Path $repoRoot "artifacts\publish\Transcriber-v1.2"
@@ -34,18 +67,21 @@ if (-not (Test-Path $projectPath)) {
 
 if (-not $SkipPublish) {
     Write-Host "Publishing app..."
-    dotnet publish $projectPath `
-        -c $Configuration `
-        -f $Framework `
-        -r $RuntimeIdentifier `
-        -p:WindowsPackageType=None `
-        -p:GenerateAppxPackageOnBuild=false `
-        -p:AppxPackage=false `
-        -p:SelfContained=true `
-        -o $publishDir
 
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet publish failed (exit code: $LASTEXITCODE)."
+    $published = Invoke-PublishAttempt -Mode "self-contained" -ExtraArgs @(
+        "-p:SelfContained=true"
+    )
+
+    if (-not $published) {
+        Write-Host "Retrying publish with framework-dependent mode..."
+        $published = Invoke-PublishAttempt -Mode "framework-dependent fallback" -ExtraArgs @(
+            "-p:SelfContained=false",
+            "-p:WindowsAppSDKSelfContained=false"
+        )
+    }
+
+    if (-not $published) {
+        throw "dotnet publish failed in all modes."
     }
 }
 
