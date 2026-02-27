@@ -24,10 +24,30 @@ function New-AppShortcut {
     $shortcut.Save()
 }
 
+function Invoke-Dotnet {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+
+    $quoted = $Arguments | ForEach-Object {
+        if ($_ -match '[\s"]') {
+            '"' + ($_ -replace '"', '\"') + '"'
+        }
+        else {
+            $_
+        }
+    }
+
+    $argumentLine = $quoted -join " "
+    $process = Start-Process -FilePath "dotnet" -ArgumentList $argumentLine -NoNewWindow -Wait -PassThru
+    return $process.ExitCode
+}
+
 function Invoke-PublishAttempt {
     param(
         [Parameter(Mandatory = $true)][string]$Mode,
-        [Parameter(Mandatory = $true)][string[]]$ExtraArgs
+        [Parameter(Mandatory = $true)][string[]]$ExtraArgs,
+        [switch]$UseRuntimeIdentifier
     )
 
     if (Test-Path $publishDir) {
@@ -40,20 +60,25 @@ function Invoke-PublishAttempt {
         "publish", $projectPath,
         "-c", $Configuration,
         "-f", $Framework,
-        "-r", $RuntimeIdentifier,
         "-p:WindowsPackageType=None",
         "-p:GenerateAppxPackageOnBuild=false",
         "-p:AppxPackage=false",
         "-o", $publishDir
-    ) + $ExtraArgs
+    )
 
-    & dotnet @publishArgs
+    if ($UseRuntimeIdentifier) {
+        $publishArgs += @("-r", $RuntimeIdentifier)
+    }
 
-    if ($LASTEXITCODE -eq 0 -and (Test-Path $publishDir)) {
+    $publishArgs += $ExtraArgs
+
+    $exitCode = Invoke-Dotnet -Arguments $publishArgs
+
+    if ($exitCode -eq 0 -and (Test-Path $publishDir)) {
         return $true
     }
 
-    Write-Warning "Publish attempt '$Mode' failed (exit code: $LASTEXITCODE)."
+    Write-Warning "Publish attempt '$Mode' failed (exit code: $exitCode)."
     return $false
 }
 
@@ -70,7 +95,7 @@ if (-not $SkipPublish) {
 
     $published = Invoke-PublishAttempt -Mode "self-contained" -ExtraArgs @(
         "-p:SelfContained=true"
-    )
+    ) -UseRuntimeIdentifier
 
     if (-not $published) {
         Write-Host "Retrying publish with framework-dependent mode..."
