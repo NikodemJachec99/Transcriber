@@ -1,80 +1,36 @@
 # Transcriber v1.2
 
-Aktualna wersja aplikacji to `AlwaysOnTopTranscriber.Hybrid` (MAUI Blazor Hybrid, Windows-first).  
-Legacy WPF zostało usunięte z solution/repo.
+Prosta aplikacja desktopowa do transkrypcji audio na Windows.
 
-## Co jest w solution
-- `src/AlwaysOnTopTranscriber.Hybrid` - aplikacja desktopowa (UI + system integration).
-- `src/AlwaysOnTopTranscriber.Core` - logika transkrypcji, zapis, modele, settings.
-- `src/AlwaysOnTopTranscriber.Tests` - testy jednostkowe.
+## Szybki wybór
+1. Chcesz po prostu zainstalować i używać? Skorzystaj z `Instalacja automatyczna (polecana)`.
+2. Chcesz uruchamiać z kodu i samodzielnie budować aplikację? Skorzystaj z `Instalacja ręczna`.
 
-## Wymagania
-1. Windows 10/11.
-2. .NET SDK 8.0.
-3. Workload MAUI dla Windows:
+## 1) Jak pobrać projekt
+1. Otwórz PowerShell.
+2. Wejdź do folderu, gdzie chcesz mieć projekt.
+3. Wklej:
 
 ```powershell
-dotnet workload install maui-windows --skip-manifest-update
+git clone https://github.com/NikodemJachec99/Transcriber.git
+cd Transcriber
 ```
 
-## Uruchomienie lokalne (krok po kroku)
-1. Wejdź do katalogu projektu.
-2. Przywróć paczki:
+## 2) Instalacja automatyczna (polecana)
+Ta opcja:
+- buduje aplikację,
+- instaluje ją lokalnie,
+- tworzy skrót na pulpicie i w menu Start.
 
-```powershell
-dotnet restore AlwaysOnTopTranscriber.sln
-```
-
-3. Zbuduj:
-
-```powershell
-dotnet build AlwaysOnTopTranscriber.sln
-```
-
-4. Uruchom aplikację:
-
-```powershell
-dotnet run --project src/AlwaysOnTopTranscriber.Hybrid/AlwaysOnTopTranscriber.Hybrid.csproj
-```
-
-Uwaga: jeśli nie masz dostępu do internetu, może pojawić się warning `NU1900` (audit feed NuGet). Nie blokuje uruchomienia.
-
-## Dane aplikacji
-Domyślnie:
-- `%AppData%\Transcriber\`
-
-W środku:
-- `app.db`
-- `settings.json`
-- `logs\`
-- `models\`
-- `transcripts\` (`.md`, `.json`, `.txt`)
-
-Nadpisanie ścieżki:
-- zmienna środowiskowa `TRANSCRIBER_DATA_DIR`
-
-## Modele Whisper
-- Pobieranie modeli jest dostępne z poziomu ekranu `Settings`.
-- Możesz też wskazać własny plik modelu (`.bin`) w ustawieniach.
-- Domyślny katalog modeli: `%AppData%\Transcriber\models`.
-
-## Stabilność długich nagrań (8 GB RAM)
-- Pipeline ma limit bufora ramek audio (`MaxBufferedAudioFrames`, domyślnie `2048`), więc RAM nie rośnie bez końca.
-- Gdy CPU jest za słabe dla wybranego modelu, aplikacja pomija nadmiar audio zamiast crashować.
-- Dla 3-4h sesji rekomendowane: model `tiny`/`base` i chunk `10-15s`.
-
-## Automatyczna instalacja (aplikacja + skrót na pulpicie)
-Installer publikuje aplikację, kopiuje ją do lokalnego katalogu użytkownika i tworzy skróty:
-- pulpit użytkownika,
-- menu Start.
-
-Uruchom:
+Kroki:
+1. Otwórz PowerShell w folderze projektu.
+2. Uruchom:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install-transcriber.ps1
 ```
 
-Wariant przez `.cmd`:
+Możesz też użyć:
 
 ```powershell
 .\scripts\install-transcriber.cmd
@@ -83,19 +39,49 @@ Wariant przez `.cmd`:
 Domyślna ścieżka instalacji:
 - `%LocalAppData%\Programs\Transcriber v1.2`
 
-## Testy
+## 3) Instalacja ręczna (dla dewelopera)
+Wymagania:
+1. Windows 10/11
+2. .NET SDK 8.0
+3. MAUI workload
+
+Instalacja zależności:
+
 ```powershell
-dotnet test src/AlwaysOnTopTranscriber.Tests/AlwaysOnTopTranscriber.Tests.csproj
+dotnet workload install maui-windows --skip-manifest-update
 ```
 
-## Szybki start Git (nowe repo)
-Jeśli to nowy folder bez `.git`:
+Budowanie i uruchomienie:
 
 ```powershell
-git init
-git branch -M main
-git add .
-git commit -m "release: transcriber v1.2 hybrid"
-git remote add origin <TWOJ_URL_REPO>
-git push -u origin main
+dotnet restore AlwaysOnTopTranscriber.sln
+dotnet build AlwaysOnTopTranscriber.sln
+dotnet run --project src/AlwaysOnTopTranscriber.Hybrid/AlwaysOnTopTranscriber.Hybrid.csproj
 ```
+
+## 4) Jak pobrać model do transkrypcji
+1. Otwórz aplikację.
+2. Przejdź do `Settings`.
+3. Wybierz model z listy i kliknij pobieranie.
+4. Po pobraniu ustaw model jako aktywny.
+
+Możesz też wskazać własny plik `.bin`.
+
+## 5) Gdzie zapisują się pliki
+Domyślny katalog danych:
+- `%AppData%\Transcriber\`
+
+Najważniejsze foldery:
+- `models\` - modele Whisper
+- `transcripts\` - zapisane transkrypcje (`.txt`, `.md`, `.json`)
+- `logs\` - logi aplikacji
+
+## 6) Stabilność długich nagrań (np. 4h na 8 GB RAM)
+- Aplikacja ma limit bufora audio, więc RAM nie rośnie bez końca.
+- Przy przeciążeniu CPU aplikacja pomija nadmiar audio zamiast się wywalać.
+- Dla długich sesji ustaw model `tiny` albo `base` i chunk `10-15s`.
+
+## 7) Najczęstszy problem
+`NU1900` podczas `dotnet restore`/`dotnet build`:
+- to zwykle brak dostępu do feedu NuGet (internet/proxy),
+- warning nie blokuje uruchomienia aplikacji.
