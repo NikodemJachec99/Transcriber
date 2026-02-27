@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <!-- Wymuszenie lokalnych katalogów build/restore omija problemy ACL na domyślnych ścieżkach obj/bin. -->
+    <BaseIntermediateOutputPath>$(TEMP)\AlwaysOnTopTranscriber\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <RestorePackagesPath>$(TEMP)\AlwaysOnTopTranscriber\nuget\packages\</RestorePackagesPath>
+    <RestoreAdditionalProjectSources>C:\Program Files\dotnet\library-packs</RestoreAdditionalProjectSources>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,25 @@
+<div class="@CssClass"
+     role="meter"
+     aria-valuemin="0"
+     aria-valuemax="100"
+     aria-valuenow="@ValueClamped"
+     aria-label="@AriaLabel">
+    <progress class="ui-meter__progress" max="100" value="@ValueClamped"></progress>
+</div>
+
+@code {
+    [Parameter]
+    public double Value { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Level meter";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    private double ValueClamped => Math.Clamp(Value, 0d, 100d);
+
+    private string CssClass => string.IsNullOrWhiteSpace(Class)
+        ? "ui-meter"
+        : $"ui-meter {Class}";
+}

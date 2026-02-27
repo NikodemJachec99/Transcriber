@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <Identity Name="AlwaysOnTopTranscriber.Hybrid" Publisher="CN=Transcriber" Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>Transcriber v1.2</DisplayName>
+    <PublisherDisplayName>Transcriber v1.2</PublisherDisplayName>
+    <Logo>Assets\logoo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.19041.0" MaxVersionTested="10.0.19041.0" />
+  </Dependencies>
+
+  <Applications>
+    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="Transcriber v1.2"
+        Description="Transcriber v1.2"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\logoo.png"
+        Square44x44Logo="Assets\logoo.png">
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

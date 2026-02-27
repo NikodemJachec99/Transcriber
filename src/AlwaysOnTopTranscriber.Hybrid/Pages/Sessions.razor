@@ -1,0 +1,422 @@
+@page "/sessions"
+@implements IDisposable
+@using System.Diagnostics
+@using System.IO
+@using Microsoft.Maui.ApplicationModel.DataTransfer
+@inject AlwaysOnTopTranscriber.Core.Storage.ISessionRepository SessionRepository
+@inject IUiLocalizationService LocalizationService
+
+<div class="app-page">
+    <UiCard>
+        <UiSectionHeader Title="@LocalizationService[UiTextKeys.SessionsTitle]"
+                         Subtitle="@LocalizationService[UiTextKeys.SessionsSubtitle]" />
+
+        <div class="sessions-toolbar">
+            <UiField Label="@LocalizationService[UiTextKeys.SessionsSearch]" For="sessions-search">
+                    <input id="sessions-search"
+                       class="ui-input"
+                       placeholder="@LocalizationService[UiTextKeys.SessionsSearch]"
+                       @bind="Query"
+                       @bind:event="oninput" />
+            </UiField>
+
+            <UiField Label="@LocalizationService[UiTextKeys.SessionsModelFilter]" For="sessions-model">
+                <select id="sessions-model"
+                        class="ui-input"
+                        @bind="SelectedModel">
+                    <option value="">@LocalizationService[UiTextKeys.SessionsModelAll]</option>
+                    @foreach (var model in ModelOptions)
+                    {
+                        <option value="@model">@model</option>
+                    }
+                </select>
+            </UiField>
+
+            <UiButton Variant="secondary" OnClick="ReloadAsync">
+                @LocalizationService[UiTextKeys.ButtonRefresh]
+            </UiButton>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(ActionStatusText))
+        {
+            <UiPill Tone="@ActionStatusTone">@ActionStatusText</UiPill>
+        }
+
+        @if (IsLoading)
+        {
+            <div class="state-card">
+                @LocalizationService[UiTextKeys.StatusLoading]
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="state-card state-card--error">
+                @LocalizationService[UiTextKeys.SessionsError]
+                <br />
+                @ErrorMessage
+            </div>
+        }
+        else if (AllSessions.Count == 0)
+        {
+            <div class="state-card">
+                @LocalizationService[UiTextKeys.SessionsEmpty]
+            </div>
+        }
+        else if (SessionItems.Count == 0)
+        {
+            <div class="state-card">
+                @LocalizationService[UiTextKeys.SessionsNoResults]
+            </div>
+        }
+        else
+        {
+            <div class="sessions-list">
+                @foreach (var session in SessionItems)
+                {
+                    var txtExists = HasExistingFile(session.TextPath);
+                    var mdExists = HasExistingFile(session.MarkdownPath);
+                    var jsonExists = HasExistingFile(session.JsonPath);
+                    var folderPath = ResolveSessionFolderPath(session);
+                    var folderExists = !string.IsNullOrWhiteSpace(folderPath) && Directory.Exists(folderPath);
+
+                    <article class="session-item">
+                        <div class="session-item__title">@session.Name</div>
+                        <div class="session-item__meta">
+                            @LocalizationService[UiTextKeys.SessionsRecorded]:
+                            @session.StartTimeUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss
+                        </div>
+                        <div class="session-item__meta">
+                            @LocalizationService[UiTextKeys.SessionsDuration]: @session.Duration.ToString("hh\\:mm\\:ss")
+                            •
+                            @session.ModelName
+                            •
+                            @LocalizationService[UiTextKeys.SessionsWords]: @session.WordCount
+                        </div>
+
+                        <div class="session-item__actions">
+                            <UiButton Variant="secondary"
+                                      Disabled="@(!folderExists)"
+                                      OnClick="@(_ => OpenSessionFolderAsync(session))">
+                                @LocalizationService[UiTextKeys.SessionsOpenFolder]
+                            </UiButton>
+                        </div>
+
+                        <div class="session-files">
+                            <div class="session-files__title">@LocalizationService[UiTextKeys.SessionsFiles]</div>
+
+                            <div class="session-file-row">
+                                <div class="session-file-row__label">TXT</div>
+                                <div class="session-file-row__name">@GetFileDisplayName(session.TextPath)</div>
+                                <div class="session-file-row__actions">
+                                    <UiButton Variant="secondary"
+                                              Disabled="@(!txtExists)"
+                                              OnClick="@(_ => OpenFileAsync(session.TextPath))">
+                                        @LocalizationService[UiTextKeys.SessionsOpen]
+                                    </UiButton>
+                                    <UiButton Variant="ghost"
+                                              Disabled="@string.IsNullOrWhiteSpace(session.TextPath)"
+                                              OnClick="@(_ => CopyPathAsync(session.TextPath))">
+                                        @LocalizationService[UiTextKeys.SessionsCopyPath]
+                                    </UiButton>
+                                </div>
+                            </div>
+
+                            <div class="session-file-row">
+                                <div class="session-file-row__label">MD</div>
+                                <div class="session-file-row__name">@GetFileDisplayName(session.MarkdownPath)</div>
+                                <div class="session-file-row__actions">
+                                    <UiButton Variant="secondary"
+                                              Disabled="@(!mdExists)"
+                                              OnClick="@(_ => OpenFileAsync(session.MarkdownPath))">
+                                        @LocalizationService[UiTextKeys.SessionsOpen]
+                                    </UiButton>
+                                    <UiButton Variant="ghost"
+                                              Disabled="@string.IsNullOrWhiteSpace(session.MarkdownPath)"
+                                              OnClick="@(_ => CopyPathAsync(session.MarkdownPath))">
+                                        @LocalizationService[UiTextKeys.SessionsCopyPath]
+                                    </UiButton>
+                                </div>
+                            </div>
+
+                            <div class="session-file-row">
+                                <div class="session-file-row__label">JSON</div>
+                                <div class="session-file-row__name">@GetFileDisplayName(session.JsonPath)</div>
+                                <div class="session-file-row__actions">
+                                    <UiButton Variant="secondary"
+                                              Disabled="@(!jsonExists)"
+                                              OnClick="@(_ => OpenFileAsync(session.JsonPath))">
+                                        @LocalizationService[UiTextKeys.SessionsOpen]
+                                    </UiButton>
+                                    <UiButton Variant="ghost"
+                                              Disabled="@string.IsNullOrWhiteSpace(session.JsonPath)"
+                                              OnClick="@(_ => CopyPathAsync(session.JsonPath))">
+                                        @LocalizationService[UiTextKeys.SessionsCopyPath]
+                                    </UiButton>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </UiCard>
+</div>
+
+@code {
+    private string _query = string.Empty;
+    private string _selectedModel = string.Empty;
+
+    private string Query
+    {
+        get => _query;
+        set
+        {
+            _query = value;
+            ApplyFilters();
+        }
+    }
+
+    private string SelectedModel
+    {
+        get => _selectedModel;
+        set
+        {
+            _selectedModel = value;
+            ApplyFilters();
+        }
+    }
+
+    private IReadOnlyList<AlwaysOnTopTranscriber.Core.Models.SessionEntity> AllSessions { get; set; } =
+        Array.Empty<AlwaysOnTopTranscriber.Core.Models.SessionEntity>();
+    private IReadOnlyList<AlwaysOnTopTranscriber.Core.Models.SessionEntity> SessionItems { get; set; } = Array.Empty<AlwaysOnTopTranscriber.Core.Models.SessionEntity>();
+    private IReadOnlyList<string> ModelOptions { get; set; } = Array.Empty<string>();
+    private bool IsLoading { get; set; }
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string ActionStatusText { get; set; } = string.Empty;
+    private string ActionStatusTone { get; set; } = "neutral";
+
+    protected override async Task OnInitializedAsync()
+    {
+        LocalizationService.LanguageChanged += HandleLanguageChanged;
+        await ReloadAsync();
+    }
+
+    public void Dispose()
+    {
+        LocalizationService.LanguageChanged -= HandleLanguageChanged;
+    }
+
+    private async Task ReloadAsync()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            AllSessions = await SessionRepository.GetSessionsAsync(CancellationToken.None);
+            ModelOptions = AllSessions
+                .Select(static item => item.ModelName)
+                .Where(static name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(static name => name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+            AllSessions = Array.Empty<AlwaysOnTopTranscriber.Core.Models.SessionEntity>();
+            SessionItems = Array.Empty<AlwaysOnTopTranscriber.Core.Models.SessionEntity>();
+        }
+        finally
+        {
+            IsLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        IEnumerable<AlwaysOnTopTranscriber.Core.Models.SessionEntity> query = AllSessions;
+
+        if (!string.IsNullOrWhiteSpace(Query))
+        {
+            var needle = Query.Trim();
+            query = query.Where(item =>
+                item.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                || item.TranscriptText.Contains(needle, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedModel))
+        {
+            query = query.Where(item => string.Equals(item.ModelName, SelectedModel, StringComparison.OrdinalIgnoreCase));
+        }
+
+        SessionItems = query
+            .OrderByDescending(static item => item.StartTimeUtc)
+            .ToArray();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLanguageChanged(object? sender, string _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OpenFileAsync(string? path)
+    {
+        var fullPath = NormalizePath(path);
+        if (fullPath is null || !File.Exists(fullPath))
+        {
+            SetActionStatus(LocalizationService[UiTextKeys.SessionsFileMissing], "danger");
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = fullPath,
+                UseShellExecute = true
+            });
+            SetActionStatus($"{LocalizationService[UiTextKeys.SessionsOpened]}: {Path.GetFileName(fullPath)}", "success");
+        }
+        catch (Exception)
+        {
+            SetActionStatus(LocalizationService[UiTextKeys.SessionsOpenFailed], "danger");
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OpenSessionFolderAsync(AlwaysOnTopTranscriber.Core.Models.SessionEntity session)
+    {
+        var folder = ResolveSessionFolderPath(session);
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
+            SetActionStatus(LocalizationService[UiTextKeys.SessionsFileMissing], "danger");
+            return;
+        }
+
+        try
+        {
+            var preferredFile = FirstExistingFilePath(session);
+            if (!string.IsNullOrWhiteSpace(preferredFile))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{preferredFile}\"",
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{folder}\"",
+                    UseShellExecute = true
+                });
+            }
+
+            SetActionStatus($"{LocalizationService[UiTextKeys.SessionsOpened]}: {folder}", "success");
+        }
+        catch (Exception)
+        {
+            SetActionStatus(LocalizationService[UiTextKeys.SessionsOpenFailed], "danger");
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CopyPathAsync(string? path)
+    {
+        var fullPath = NormalizePath(path);
+        if (fullPath is null)
+        {
+            SetActionStatus(LocalizationService[UiTextKeys.SessionsFileMissing], "danger");
+            return;
+        }
+
+        await Clipboard.Default.SetTextAsync(fullPath);
+        SetActionStatus(LocalizationService[UiTextKeys.SessionsCopied], "success");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetFileDisplayName(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "-";
+        }
+
+        var fileName = Path.GetFileName(path);
+        return string.IsNullOrWhiteSpace(fileName) ? path : fileName;
+    }
+
+    private static bool HasExistingFile(string? path)
+    {
+        var fullPath = NormalizePath(path);
+        return fullPath is not null && File.Exists(fullPath);
+    }
+
+    private static string? FirstExistingFilePath(AlwaysOnTopTranscriber.Core.Models.SessionEntity session)
+    {
+        var candidates = new[] { session.TextPath, session.MarkdownPath, session.JsonPath };
+        foreach (var candidate in candidates)
+        {
+            var fullPath = NormalizePath(candidate);
+            if (fullPath is not null && File.Exists(fullPath))
+            {
+                return fullPath;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveSessionFolderPath(AlwaysOnTopTranscriber.Core.Models.SessionEntity session)
+    {
+        var candidates = new[] { session.TextPath, session.MarkdownPath, session.JsonPath };
+        foreach (var candidate in candidates)
+        {
+            var fullPath = NormalizePath(candidate);
+            if (fullPath is null)
+            {
+                continue;
+            }
+
+            var directory = Path.GetDirectoryName(fullPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                return directory;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void SetActionStatus(string text, string tone)
+    {
+        ActionStatusText = text;
+        ActionStatusTone = tone;
+    }
+}

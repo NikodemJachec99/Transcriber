@@ -1,0 +1,107 @@
+namespace AlwaysOnTopTranscriber.Hybrid.Services.Localization;
+
+public static class UiTextKeys
+{
+    public const string AppName = "app.name";
+    public const string NavLive = "nav.live";
+    public const string NavSessions = "nav.sessions";
+    public const string NavSettings = "nav.settings";
+    public const string NavMiniWidget = "nav.mini_widget";
+    public const string ThemeLight = "theme.light";
+    public const string ThemeDark = "theme.dark";
+    public const string ThemeLabel = "theme.label";
+    public const string UiLanguageLabel = "ui.language.label";
+    public const string UiModeLabel = "ui.mode.label";
+    public const string UiModeBasic = "ui.mode.basic";
+    public const string UiModeAdvanced = "ui.mode.advanced";
+    public const string UiLanguagePl = "ui.language.pl";
+    public const string UiLanguageEn = "ui.language.en";
+    public const string ButtonSave = "button.save";
+    public const string ButtonRefresh = "button.refresh";
+    public const string StatusReady = "status.ready";
+    public const string StatusListening = "status.listening";
+    public const string StatusSaved = "status.saved";
+    public const string StatusError = "status.error";
+    public const string StatusLoading = "status.loading";
+
+    public const string TranscriptionLanguageLabel = "transcription.language.label";
+    public const string TranscriptionLanguageAuto = "transcription.language.auto";
+    public const string TranscriptionLanguagePl = "transcription.language.pl";
+    public const string TranscriptionLanguageEn = "transcription.language.en";
+    public const string SessionNameLabel = "session.name.label";
+
+    public const string LiveTitle = "live.title";
+    public const string LiveSubtitle = "live.subtitle";
+    public const string LivePrimaryActionStart = "live.action.start";
+    public const string LivePrimaryActionStop = "live.action.stop";
+    public const string LiveOpenMiniWidget = "live.open_mini_widget";
+    public const string LiveElapsed = "live.elapsed";
+    public const string LiveAudioLevel = "live.audio_level";
+    public const string LiveTranscriptTitle = "live.transcript.title";
+    public const string LiveTranscriptSubtitle = "live.transcript.subtitle";
+    public const string LiveTranscriptPlaceholder = "live.transcript.placeholder";
+    public const string LiveLastSaved = "live.last_saved";
+    public const string LiveAdvancedTitle = "live.advanced.title";
+    public const string LiveAdvancedSubtitle = "live.advanced.subtitle";
+    public const string LivePendingAudio = "live.advanced.pending_audio";
+    public const string LivePendingChunks = "live.advanced.pending_chunks";
+    public const string LiveProcessedChunks = "live.advanced.processed_chunks";
+    public const string LiveLag = "live.advanced.lag";
+
+    public const string SessionsTitle = "sessions.title";
+    public const string SessionsSubtitle = "sessions.subtitle";
+    public const string SessionsSearch = "sessions.search";
+    public const string SessionsModelFilter = "sessions.model_filter";
+    public const string SessionsModelAll = "sessions.model_all";
+    public const string SessionsEmpty = "sessions.empty";
+    public const string SessionsNoResults = "sessions.no_results";
+    public const string SessionsError = "sessions.error";
+    public const string SessionsWords = "sessions.words";
+    public const string SessionsDuration = "sessions.duration";
+    public const string SessionsRecorded = "sessions.recorded";
+    public const string SessionsFiles = "sessions.files";
+    public const string SessionsOpen = "sessions.open";
+    public const string SessionsOpenFolder = "sessions.open_folder";
+    public const string SessionsCopyPath = "sessions.copy_path";
+    public const string SessionsFileMissing = "sessions.file_missing";
+    public const string SessionsOpened = "sessions.opened";
+    public const string SessionsCopied = "sessions.copied";
+    public const string SessionsOpenFailed = "sessions.open_failed";
+
+    public const string SettingsTitle = "settings.title";
+    public const string SettingsSubtitle = "settings.subtitle";
+    public const string SettingsSectionGeneral = "settings.section.general";
+    public const string SettingsSectionModel = "settings.section.model";
+    public const string SettingsSectionUi = "settings.section.ui";
+    public const string SettingsSectionAdvanced = "settings.section.advanced";
+    public const string SettingsModelSelect = "settings.model.select";
+    public const string SettingsModelDownloadSelect = "settings.model.download.select";
+    public const string SettingsModelDownload = "settings.model.download";
+    public const string SettingsModelDownloadThis = "settings.model.download.this";
+    public const string SettingsModelCancelDownload = "settings.model.download.cancel";
+    public const string SettingsModelRefresh = "settings.model.refresh";
+    public const string SettingsModelCatalog = "settings.model.catalog";
+    public const string SettingsModelDownloaded = "settings.model.downloaded";
+    public const string SettingsModelNotDownloaded = "settings.model.not_downloaded";
+    public const string SettingsModelDownloading = "settings.model.downloading";
+    public const string SettingsModelProgress = "settings.model.progress";
+    public const string SettingsModelCustomHint = "settings.model.custom_hint";
+    public const string SettingsModelDownloadDone = "settings.model.download.done";
+    public const string SettingsModelDownloadError = "settings.model.download.error";
+    public const string SettingsModelDownloadCanceled = "settings.model.download.canceled";
+    public const string SettingsModelMissing = "settings.model.missing";
+    public const string SettingsModelName = "settings.model.name";
+    public const string SettingsModelPath = "settings.model.path";
+    public const string SettingsChunkLength = "settings.chunk_length";
+    public const string SettingsSilenceThreshold = "settings.silence_threshold";
+    public const string SettingsAutoPunctuation = "settings.auto_punctuation";
+    public const string SettingsDarkMode = "settings.dark_mode";
+    public const string SettingsSaved = "settings.saved";
+    public const string SettingsAdvancedHint = "settings.advanced.hint";
+
+    public const string MiniTitle = "mini.title";
+    public const string MiniOpenFullPanel = "mini.open_full_panel";
+    public const string MiniActionStart = "mini.action.start";
+    public const string MiniActionStop = "mini.action.stop";
+    public const string NotFound = "common.not_found";
+}

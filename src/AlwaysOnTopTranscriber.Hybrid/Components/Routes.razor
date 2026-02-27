@@ -1,0 +1,14 @@
+@inject IUiLocalizationService LocalizationService
+
+<Router AppAssembly="@typeof(MauiProgram).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(Layout.MainLayout)">
+            <UiCard>
+                @LocalizationService[UiTextKeys.NotFound]
+            </UiCard>
+        </LayoutView>
+    </NotFound>
+</Router>

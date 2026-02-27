@@ -1,0 +1,478 @@
+@page "/settings"
+@implements IDisposable
+@inject AlwaysOnTopTranscriber.Core.Utilities.ISettingsService SettingsService
+@inject AlwaysOnTopTranscriber.Core.Utilities.IModelManager ModelManager
+@inject AlwaysOnTopTranscriber.Core.Theming.IThemeService ThemeService
+@inject IUiLocalizationService LocalizationService
+@inject LiveSessionState LiveState
+
+<div class="app-page">
+    <UiCard>
+        <UiSectionHeader Title="@LocalizationService[UiTextKeys.SettingsTitle]"
+                         Subtitle="@LocalizationService[UiTextKeys.SettingsSubtitle]" />
+
+        <div class="settings-grid">
+            <section class="settings-section">
+                <h3>@LocalizationService[UiTextKeys.SettingsSectionGeneral]</h3>
+                <div class="ui-stack">
+                    <label class="ui-checkbox">
+                        <input type="checkbox" checked="@DarkMode" @onchange="OnDarkModeChanged" />
+                        <span>@LocalizationService[UiTextKeys.SettingsDarkMode]</span>
+                    </label>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h3>@LocalizationService[UiTextKeys.SettingsSectionModel]</h3>
+                <div class="ui-stack">
+                    <UiField Label="@LocalizationService[UiTextKeys.SettingsModelSelect]" For="settings-model-name">
+                        <select id="settings-model-name" class="ui-input" @bind="ModelName">
+                            @foreach (var name in KnownModelNames)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </select>
+                    </UiField>
+
+                    <UiField Label="@LocalizationService[UiTextKeys.SettingsModelPath]" For="settings-model-path">
+                        <input id="settings-model-path" class="ui-input" @bind="ModelPath" @bind:event="oninput" />
+                    </UiField>
+
+                    <UiField Label="@LocalizationService[UiTextKeys.SettingsModelDownloadSelect]" For="settings-model-download-name">
+                        <select id="settings-model-download-name" class="ui-input" @bind="DownloadModelName">
+                            @foreach (var name in KnownModelNames)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </select>
+                    </UiField>
+
+                    <div class="settings-model-hint">@LocalizationService[UiTextKeys.SettingsModelCustomHint]</div>
+
+                    <div class="settings-model-actions">
+                        <UiButton Variant="secondary"
+                                  Disabled="@IsLoadingModels"
+                                  OnClick="RefreshModelsAsync">
+                            @LocalizationService[UiTextKeys.SettingsModelRefresh]
+                        </UiButton>
+                        <UiButton Disabled="@IsDownloadingModel" OnClick="DownloadSelectedModelAsync">
+                            @LocalizationService[UiTextKeys.SettingsModelDownload]
+                        </UiButton>
+                        @if (IsDownloadingModel)
+                        {
+                            <UiButton Variant="danger" OnClick="CancelDownload">
+                                @LocalizationService[UiTextKeys.SettingsModelCancelDownload]
+                            </UiButton>
+                        }
+                    </div>
+
+                    @if (IsDownloadingModel || DownloadProgressPercent > 0)
+                    {
+                        <div class="ui-stack">
+                            <div class="ui-label">
+                                @LocalizationService[UiTextKeys.SettingsModelProgress]:
+                                @DownloadProgressText
+                            </div>
+                            <UiMeter Value="@DownloadProgressPercent" AriaLabel="@LocalizationService[UiTextKeys.SettingsModelProgress]" />
+                        </div>
+                    }
+
+                    <div class="model-catalog">
+                        <div class="model-catalog__title">@LocalizationService[UiTextKeys.SettingsModelCatalog]</div>
+                        @if (IsLoadingModels)
+                        {
+                            <div class="model-catalog__state">@LocalizationService[UiTextKeys.StatusLoading]</div>
+                        }
+                        else if (KnownModels.Count == 0)
+                        {
+                            <div class="model-catalog__state">@LocalizationService[UiTextKeys.StatusError]</div>
+                        }
+                        else
+                        {
+                            @foreach (var model in KnownModels)
+                            {
+                                <div class="model-item">
+                                    <div class="model-item__name">@model.Name</div>
+                                    <div class="model-item__actions">
+                                        <UiPill Tone="@(model.IsDownloaded ? "success" : "neutral")">
+                                            @(model.IsDownloaded
+                                                ? LocalizationService[UiTextKeys.SettingsModelDownloaded]
+                                                : LocalizationService[UiTextKeys.SettingsModelNotDownloaded])
+                                            @if (model.ApproximateSizeBytes is > 0)
+                                            {
+                                                <text> (~@FormatBytes(model.ApproximateSizeBytes.Value))</text>
+                                            }
+                                        </UiPill>
+                                        @if (!model.IsDownloaded)
+                                        {
+                                            <UiButton Variant="secondary"
+                                                      Disabled="@IsDownloadingModel"
+                                                      OnClick="@(_ => DownloadModelByNameAsync(model.Name))">
+                                                @LocalizationService[UiTextKeys.SettingsModelDownloadThis]
+                                            </UiButton>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <section class="settings-section">
+                <h3>@LocalizationService[UiTextKeys.SettingsSectionUi]</h3>
+                <div class="ui-stack">
+                    <UiField Label="@LocalizationService[UiTextKeys.UiLanguageLabel]" For="settings-ui-language">
+                        <select id="settings-ui-language" class="ui-input" @bind="SelectedUiLanguage">
+                            <option value="pl">@LocalizationService[UiTextKeys.UiLanguagePl]</option>
+                            <option value="en">@LocalizationService[UiTextKeys.UiLanguageEn]</option>
+                        </select>
+                    </UiField>
+
+                    <UiField Label="@LocalizationService[UiTextKeys.UiModeLabel]" For="settings-ui-mode">
+                        <select id="settings-ui-mode" class="ui-input" @bind="SelectedUiMode">
+                            <option value="basic">@LocalizationService[UiTextKeys.UiModeBasic]</option>
+                            <option value="advanced">@LocalizationService[UiTextKeys.UiModeAdvanced]</option>
+                        </select>
+                    </UiField>
+                </div>
+            </section>
+
+            <details class="advanced-panel" open="@IsAdvancedMode">
+                <summary>@LocalizationService[UiTextKeys.SettingsSectionAdvanced]</summary>
+                <p class="advanced-panel__hint">@LocalizationService[UiTextKeys.SettingsAdvancedHint]</p>
+
+                <div class="ui-stack">
+                    <UiField Label="@LocalizationService[UiTextKeys.SettingsChunkLength]" For="settings-chunk-length">
+                        <input id="settings-chunk-length"
+                               class="ui-input"
+                               type="number"
+                               min="3"
+                               max="60"
+                               @bind="ChunkLengthSeconds" />
+                    </UiField>
+
+                    <UiField Label="@LocalizationService[UiTextKeys.SettingsSilenceThreshold]" For="settings-silence-threshold">
+                        <input id="settings-silence-threshold" class="ui-input" @bind="SilenceRmsThresholdText" @bind:event="oninput" />
+                    </UiField>
+
+                    <label class="ui-checkbox">
+                        <input type="checkbox" checked="@AutoPunctuation" @onchange="OnAutoPunctuationChanged" />
+                        <span>@LocalizationService[UiTextKeys.SettingsAutoPunctuation]</span>
+                    </label>
+                </div>
+            </details>
+        </div>
+
+        <div class="settings-actions">
+            <UiButton OnClick="SaveAsync">@LocalizationService[UiTextKeys.ButtonSave]</UiButton>
+            <UiPill Tone="@StatusTone">@StatusText</UiPill>
+        </div>
+    </UiCard>
+</div>
+
+@code {
+    private bool DarkMode { get; set; }
+    private string ModelName { get; set; } = "base";
+    private string DownloadModelName { get; set; } = "base";
+    private string ModelPath { get; set; } = string.Empty;
+    private string SelectedUiLanguage { get; set; } = "pl";
+    private string SelectedUiMode { get; set; } = "basic";
+    private int ChunkLengthSeconds { get; set; } = 10;
+    private string SilenceRmsThresholdText { get; set; } = "0.003";
+    private bool AutoPunctuation { get; set; } = true;
+    private string StatusText { get; set; } = string.Empty;
+    private string StatusTone { get; set; } = "neutral";
+    private IReadOnlyList<AlwaysOnTopTranscriber.Core.Models.ModelDescriptor> KnownModels { get; set; } =
+        Array.Empty<AlwaysOnTopTranscriber.Core.Models.ModelDescriptor>();
+    private IReadOnlyList<string> KnownModelNames { get; set; } = new[] { "tiny", "base", "small", "basics" };
+    private bool IsLoadingModels { get; set; }
+    private bool IsDownloadingModel { get; set; }
+    private double DownloadProgressPercent { get; set; }
+    private string DownloadProgressText { get; set; } = string.Empty;
+    private CancellationTokenSource? DownloadCts { get; set; }
+
+    private bool IsAdvancedMode => string.Equals(SelectedUiMode, "advanced", StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        LocalizationService.LanguageChanged += HandleLanguageChanged;
+        LiveState.Changed += HandleLiveStateChanged;
+
+        var settings = SettingsService.Load();
+        DarkMode = settings.DarkMode;
+        ModelName = settings.ModelName;
+        DownloadModelName = settings.ModelName;
+        ModelPath = settings.ModelPath ?? string.Empty;
+        SelectedUiLanguage = NormalizeUiLanguage(settings.UiLanguage);
+        SelectedUiMode = NormalizeUiMode(settings.UiMode);
+        ChunkLengthSeconds = Math.Clamp(settings.ChunkLengthSeconds, 3, 60);
+        SilenceRmsThresholdText = settings.SilenceRmsThreshold.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture);
+        AutoPunctuation = settings.AutoPunctuation;
+        StatusText = LocalizationService[UiTextKeys.StatusReady];
+        StatusTone = "neutral";
+        DownloadProgressText = LocalizationService[UiTextKeys.StatusReady];
+
+        await RefreshModelsAsync();
+    }
+
+    public void Dispose()
+    {
+        DownloadCts?.Cancel();
+        DownloadCts?.Dispose();
+        LocalizationService.LanguageChanged -= HandleLanguageChanged;
+        LiveState.Changed -= HandleLiveStateChanged;
+    }
+
+    private void OnDarkModeChanged(ChangeEventArgs args)
+    {
+        DarkMode = args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+        ThemeService.ApplyTheme(DarkMode, persist: true);
+    }
+
+    private void OnAutoPunctuationChanged(ChangeEventArgs args)
+    {
+        AutoPunctuation = args.Value is true || string.Equals(args.Value?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task SaveAsync()
+    {
+        var settings = SettingsService.Load();
+        settings.DarkMode = DarkMode;
+        settings.ModelName = string.IsNullOrWhiteSpace(ModelName) ? "base" : ModelName.Trim();
+        var normalizedModelPath = NormalizeOptionalPath(ModelPath);
+        if (normalizedModelPath is not null && !File.Exists(normalizedModelPath))
+        {
+            StatusText = $"{LocalizationService[UiTextKeys.StatusError]}: {normalizedModelPath}";
+            StatusTone = "danger";
+            return;
+        }
+
+        var selectedKnownModel = KnownModels.FirstOrDefault(model =>
+            string.Equals(model.Name, settings.ModelName, StringComparison.OrdinalIgnoreCase));
+        if (normalizedModelPath is null && selectedKnownModel is not null && !selectedKnownModel.IsDownloaded)
+        {
+            StatusText = LocalizationService[UiTextKeys.SettingsModelMissing];
+            StatusTone = "danger";
+            return;
+        }
+
+        settings.ModelPath = normalizedModelPath;
+        settings.UiLanguage = NormalizeUiLanguage(SelectedUiLanguage);
+        settings.UiMode = NormalizeUiMode(SelectedUiMode);
+        settings.ChunkLengthSeconds = Math.Clamp(ChunkLengthSeconds, 3, 60);
+        settings.SilenceRmsThreshold = ParseSilenceThreshold(SilenceRmsThresholdText, fallback: settings.SilenceRmsThreshold);
+        settings.AutoPunctuation = AutoPunctuation;
+
+        await SettingsService.SaveAsync(settings, CancellationToken.None);
+        ThemeService.ApplyTheme(settings.DarkMode, persist: false);
+
+        LocalizationService.SetLanguage(settings.UiLanguage, persist: false);
+        LiveState.UiMode = settings.UiMode;
+
+        StatusText = LocalizationService[UiTextKeys.SettingsSaved];
+        StatusTone = "success";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshModelsAsync()
+    {
+        IsLoadingModels = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var models = await ModelManager.GetAvailableAsync(CancellationToken.None);
+            KnownModels = models
+                .OrderBy(static model => model.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            KnownModelNames = KnownModels
+                .Select(static model => model.Name)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (KnownModelNames.Count > 0
+                && !KnownModelNames.Any(name => string.Equals(name, ModelName, StringComparison.OrdinalIgnoreCase)))
+            {
+                ModelName = KnownModelNames.First();
+            }
+
+            if (KnownModelNames.Count > 0
+                && !KnownModelNames.Any(name => string.Equals(name, DownloadModelName, StringComparison.OrdinalIgnoreCase)))
+            {
+                DownloadModelName = KnownModelNames.First();
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"{LocalizationService[UiTextKeys.StatusError]}: {ex.Message}";
+            StatusTone = "danger";
+        }
+        finally
+        {
+            IsLoadingModels = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task DownloadSelectedModelAsync()
+    {
+        if (IsDownloadingModel)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(DownloadModelName))
+        {
+            StatusText = $"{LocalizationService[UiTextKeys.StatusError]}: {LocalizationService[UiTextKeys.SettingsModelDownloadSelect]}";
+            StatusTone = "danger";
+            return;
+        }
+
+        DownloadCts?.Dispose();
+        DownloadCts = new CancellationTokenSource();
+        IsDownloadingModel = true;
+        DownloadProgressPercent = 0;
+        DownloadProgressText = LocalizationService[UiTextKeys.SettingsModelDownloading];
+        StatusText = LocalizationService[UiTextKeys.SettingsModelDownloading];
+        StatusTone = "accent";
+        await InvokeAsync(StateHasChanged);
+
+        var progress = new Progress<AlwaysOnTopTranscriber.Core.Models.ModelDownloadProgress>(report =>
+        {
+            DownloadProgressPercent = Math.Round(Math.Clamp(report.FractionCompleted * 100d, 0d, 100d), 1);
+            var totalText = report.TotalBytes is > 0
+                ? $" / {FormatBytes(report.TotalBytes.Value)}"
+                : string.Empty;
+            var etaText = report.EstimatedRemaining is { } eta && eta > TimeSpan.Zero
+                ? $" | ETA {eta:mm\\:ss}"
+                : string.Empty;
+            var resumeText = report.IsResumedDownload ? " (resume)" : string.Empty;
+            DownloadProgressText = $"{FormatBytes(report.DownloadedBytes)}{totalText}{etaText}{resumeText}";
+            _ = InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            await ModelManager.DownloadAsync(DownloadModelName.Trim(), progress, DownloadCts.Token);
+            StatusText = $"{LocalizationService[UiTextKeys.SettingsModelDownloadDone]}: {DownloadModelName}";
+            StatusTone = "success";
+            DownloadProgressPercent = 100;
+            await RefreshModelsAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = LocalizationService[UiTextKeys.SettingsModelDownloadCanceled];
+            StatusTone = "neutral";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"{LocalizationService[UiTextKeys.SettingsModelDownloadError]}: {ex.Message}";
+            StatusTone = "danger";
+        }
+        finally
+        {
+            IsDownloadingModel = false;
+            DownloadCts?.Dispose();
+            DownloadCts = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Task DownloadModelByNameAsync(string modelName)
+    {
+        DownloadModelName = modelName;
+        return DownloadSelectedModelAsync();
+    }
+
+    private void CancelDownload()
+    {
+        DownloadCts?.Cancel();
+    }
+
+    private static string NormalizeUiLanguage(string? language)
+    {
+        return string.Equals(language, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "pl";
+    }
+
+    private static string NormalizeUiMode(string? mode)
+    {
+        return string.Equals(mode, "advanced", StringComparison.OrdinalIgnoreCase) ? "advanced" : "basic";
+    }
+
+    private static float ParseSilenceThreshold(string input, float fallback)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return fallback;
+        }
+
+        var normalized = input.Trim().Replace(',', '.');
+        if (!float.TryParse(
+                normalized,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return fallback;
+        }
+
+        return Math.Clamp(parsed, 0.0005f, 0.05f);
+    }
+
+    private static string? NormalizeOptionalPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        var trimmed = path.Trim().Trim('"');
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+
+        var expanded = Environment.ExpandEnvironmentVariables(trimmed);
+        return Path.GetFullPath(expanded);
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        var mb = bytes / (1024d * 1024d);
+        if (mb < 1024d)
+        {
+            return $"{mb:0.0} MB";
+        }
+
+        var gb = mb / 1024d;
+        return $"{gb:0.00} GB";
+    }
+
+    private void HandleLanguageChanged(object? sender, string _)
+    {
+        if (StatusTone == "success")
+        {
+            StatusText = LocalizationService[UiTextKeys.SettingsSaved];
+        }
+        else
+        {
+            StatusText = LocalizationService[UiTextKeys.StatusReady];
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLiveStateChanged()
+    {
+        if (!string.Equals(SelectedUiMode, LiveState.UiMode, StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedUiMode = LiveState.UiMode;
+            _ = InvokeAsync(StateHasChanged);
+        }
+    }
+}

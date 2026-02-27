@@ -1,0 +1,47 @@
+# Build outputs
+bin/
+obj/
+out/
+publish/
+artifacts/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test / coverage
+TestResults/
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Local caches / temporary folders
+.artifacts/
+.dotnet/
+.nuget/
+.templateengine/
+.tmp_build/
+
+# Local data / logs
+*.log
+build*.txt
+restore*.log
+sln_build.log
+write_test.txt
+.nick-voice-data/
+.transcriber-data/
+
+# SQLite transient
+*.db-shm
+*.db-wal
+*.db-journal

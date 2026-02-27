@@ -1,0 +1,141 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AlwaysOnTopTranscriber.Core.Theming.IThemeService ThemeService
+@inject IUiLocalizationService LocalizationService
+@inject LiveSessionState LiveState
+@inject NavigationManager Navigation
+@inject AlwaysOnTopTranscriber.Hybrid.Services.System.IWindowCoordinator WindowCoordinator
+
+<div class="app-shell" data-theme="@ThemeName" lang="@LocalizationService.CurrentLanguage">
+    <header class="app-topbar">
+        <div class="app-brand">
+            <img src="images/logoo.png" alt="Transcriber v1.2 logo" class="app-brand__logo" />
+            <span>@LocalizationService[UiTextKeys.AppName]</span>
+        </div>
+
+        <nav class="app-nav">
+            <NavLink href="/" Match="NavLinkMatch.All">@LocalizationService[UiTextKeys.NavLive]</NavLink>
+            <NavLink href="/sessions">@LocalizationService[UiTextKeys.NavSessions]</NavLink>
+            <NavLink href="/settings">@LocalizationService[UiTextKeys.NavSettings]</NavLink>
+            <NavLink href="/mini-widget">@LocalizationService[UiTextKeys.NavMiniWidget]</NavLink>
+        </nav>
+
+        <div class="app-topbar-actions">
+            <div class="app-toggle-group">
+                <UiButton Variant="ghost"
+                          Class="@GetToggleClass("pl", LocalizationService.CurrentLanguage)"
+                          OnClick="SetLanguagePl">
+                    PL
+                </UiButton>
+                <UiButton Variant="ghost"
+                          Class="@GetToggleClass("en", LocalizationService.CurrentLanguage)"
+                          OnClick="SetLanguageEn">
+                    EN
+                </UiButton>
+            </div>
+
+            <div class="app-toggle-group">
+                <UiButton Variant="ghost"
+                          Class="@GetToggleClass("basic", LiveState.UiMode)"
+                          OnClick="SetUiModeBasic">
+                    @LocalizationService[UiTextKeys.UiModeBasic]
+                </UiButton>
+                <UiButton Variant="ghost"
+                          Class="@GetToggleClass("advanced", LiveState.UiMode)"
+                          OnClick="SetUiModeAdvanced">
+                    @LocalizationService[UiTextKeys.UiModeAdvanced]
+                </UiButton>
+            </div>
+
+            <UiButton Variant="secondary" OnClick="ToggleTheme">
+                @(ThemeService.IsDarkMode ? LocalizationService[UiTextKeys.ThemeLight] : LocalizationService[UiTextKeys.ThemeDark])
+            </UiButton>
+        </div>
+    </header>
+
+    <main class="app-main">
+        @Body
+    </main>
+</div>
+
+@code {
+    private string ThemeName => ThemeService.IsDarkMode ? "dark" : "light";
+
+    protected override void OnInitialized()
+    {
+        ThemeService.ThemeChanged += HandleThemeChanged;
+        LocalizationService.LanguageChanged += HandleLanguageChanged;
+        LiveState.Changed += HandleStateChanged;
+        WindowCoordinator.RouteChanged += HandleRouteChanged;
+    }
+
+    public void Dispose()
+    {
+        ThemeService.ThemeChanged -= HandleThemeChanged;
+        LocalizationService.LanguageChanged -= HandleLanguageChanged;
+        LiveState.Changed -= HandleStateChanged;
+        WindowCoordinator.RouteChanged -= HandleRouteChanged;
+    }
+
+    private void ToggleTheme()
+    {
+        ThemeService.ToggleTheme();
+    }
+
+    private void SetLanguage(string language)
+    {
+        LocalizationService.SetLanguage(language, persist: true);
+    }
+
+    private void SetLanguagePl()
+    {
+        SetLanguage("pl");
+    }
+
+    private void SetLanguageEn()
+    {
+        SetLanguage("en");
+    }
+
+    private void SetUiMode(string mode)
+    {
+        LiveState.UiMode = mode;
+    }
+
+    private void SetUiModeBasic()
+    {
+        SetUiMode("basic");
+    }
+
+    private void SetUiModeAdvanced()
+    {
+        SetUiMode("advanced");
+    }
+
+    private static string GetToggleClass(string value, string currentValue)
+    {
+        return string.Equals(value, currentValue, StringComparison.OrdinalIgnoreCase)
+            ? "is-active"
+            : string.Empty;
+    }
+
+    private void HandleThemeChanged(object? sender, bool _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLanguageChanged(object? sender, string _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleRouteChanged(string route)
+    {
+        InvokeAsync(() => Navigation.NavigateTo(route));
+    }
+}

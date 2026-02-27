@@ -1,0 +1,116 @@
+@page "/"
+@implements IDisposable
+@inject LiveSessionState State
+@inject IUiLocalizationService LocalizationService
+@inject NavigationManager Navigation
+
+<div class="app-page app-grid app-grid--live">
+    <UiCard>
+        <UiSectionHeader Title="@LocalizationService[UiTextKeys.LiveTitle]"
+                         Subtitle="@LocalizationService[UiTextKeys.LiveSubtitle]">
+            <Actions>
+                <UiButton Variant="secondary" OnClick="OpenMiniWidget">
+                    @LocalizationService[UiTextKeys.LiveOpenMiniWidget]
+                </UiButton>
+            </Actions>
+        </UiSectionHeader>
+
+        <div class="ui-stack">
+            <UiField Label="@LocalizationService[UiTextKeys.SessionNameLabel]" For="session-name-live">
+                <input id="session-name-live"
+                       class="ui-input"
+                       @bind="State.SessionName"
+                       @bind:event="oninput" />
+            </UiField>
+
+            <UiField Label="@LocalizationService[UiTextKeys.TranscriptionLanguageLabel]" For="conversation-language-live">
+                <select id="conversation-language-live"
+                        class="ui-input"
+                        @bind="State.SelectedLanguage">
+                    @foreach (var option in State.LanguageOptions)
+                    {
+                        <option value="@option.Code">@option.DisplayName</option>
+                    }
+                </select>
+            </UiField>
+
+            <div class="live-primary-controls">
+                <UiButton Variant="@(State.IsRecording ? "danger" : "primary")" OnClick="State.ToggleRecordingAsync">
+                    @(State.IsRecording
+                        ? LocalizationService[UiTextKeys.LivePrimaryActionStop]
+                        : LocalizationService[UiTextKeys.LivePrimaryActionStart])
+                </UiButton>
+                <UiPill Tone="accent">@State.StatusText</UiPill>
+                <UiPill>@LocalizationService[UiTextKeys.LiveElapsed]: @State.ElapsedText</UiPill>
+            </div>
+
+            <div class="live-meter-block">
+                <div class="ui-label">@LocalizationService[UiTextKeys.LiveAudioLevel]</div>
+                <UiMeter Value="State.AudioLevelPercent" AriaLabel="@LocalizationService[UiTextKeys.LiveAudioLevel]" />
+            </div>
+
+            @if (State.LastSavedSession is not null)
+            {
+                <UiPill Tone="success">
+                    @LocalizationService[UiTextKeys.LiveLastSaved]:
+                    @Path.GetFileName(State.LastSavedSession.MarkdownPath),
+                    @Path.GetFileName(State.LastSavedSession.JsonPath),
+                    @Path.GetFileName(State.LastSavedSession.TextPath)
+                </UiPill>
+            }
+        </div>
+    </UiCard>
+
+    <UiCard>
+        <UiSectionHeader Title="@LocalizationService[UiTextKeys.LiveTranscriptTitle]"
+                         Subtitle="@LocalizationService[UiTextKeys.LiveTranscriptSubtitle]" />
+        <div class="transcript-box">
+            @(string.IsNullOrWhiteSpace(State.FullText)
+                ? LocalizationService[UiTextKeys.LiveTranscriptPlaceholder]
+                : State.FullText)
+        </div>
+    </UiCard>
+
+    @if (State.IsAdvancedMode)
+    {
+        <UiCard>
+            <UiSectionHeader Title="@LocalizationService[UiTextKeys.LiveAdvancedTitle]"
+                             Subtitle="@LocalizationService[UiTextKeys.LiveAdvancedSubtitle]" />
+            <div class="advanced-metrics-grid">
+                <UiPill>@LocalizationService[UiTextKeys.LivePendingAudio]: @State.PendingAudioFrames</UiPill>
+                <UiPill>@LocalizationService[UiTextKeys.LivePendingChunks]: @State.PendingChunks</UiPill>
+                <UiPill>@LocalizationService[UiTextKeys.LiveProcessedChunks]: @State.ProcessedChunks</UiPill>
+                <UiPill>@LocalizationService[UiTextKeys.LiveLag]: @State.ProcessingLagText</UiPill>
+            </div>
+        </UiCard>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.Changed += HandleChanged;
+        LocalizationService.LanguageChanged += HandleLanguageChanged;
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= HandleChanged;
+        LocalizationService.LanguageChanged -= HandleLanguageChanged;
+    }
+
+    private void HandleChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLanguageChanged(object? sender, string _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenMiniWidget()
+    {
+        Navigation.NavigateTo("/mini-widget");
+    }
+}

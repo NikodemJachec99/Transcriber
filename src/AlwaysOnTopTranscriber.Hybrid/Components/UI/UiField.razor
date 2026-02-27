@@ -1,0 +1,34 @@
+<div class="@CssClass">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <label class="ui-field__label" for="@For">@Label</label>
+    }
+
+    @ChildContent
+
+    @if (!string.IsNullOrWhiteSpace(Hint))
+    {
+        <div class="ui-field__hint">@Hint</div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? For { get; set; }
+
+    [Parameter]
+    public string? Hint { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private string CssClass => string.IsNullOrWhiteSpace(Class)
+        ? "ui-field"
+        : $"ui-field {Class}";
+}

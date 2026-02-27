@@ -1,0 +1,21 @@
+<span class="@CssClass" @attributes="AdditionalAttributes">
+    @ChildContent
+</span>
+
+@code {
+    [Parameter]
+    public string Tone { get; set; } = "neutral";
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string CssClass => string.IsNullOrWhiteSpace(Class)
+        ? $"ui-pill ui-pill--{Tone}"
+        : $"ui-pill ui-pill--{Tone} {Class}";
+}

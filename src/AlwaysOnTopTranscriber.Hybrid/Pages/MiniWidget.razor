@@ -1,0 +1,116 @@
+@page "/mini-widget"
+@layout AlwaysOnTopTranscriber.Hybrid.Components.Layout.MiniWidgetLayout
+@implements IDisposable
+@inject LiveSessionState State
+@inject AlwaysOnTopTranscriber.Hybrid.Services.System.IMiniWidgetHost MiniWidgetHost
+@inject IUiLocalizationService LocalizationService
+@inject IJSRuntime JsRuntime
+@inject NavigationManager Navigation
+
+<div class="mini-widget-window">
+    <div class="mini-widget-card" @onpointerdown="BeginWindowDrag">
+        <div class="mini-widget-top">
+            <div class="mini-widget-title">@LocalizationService[UiTextKeys.MiniTitle]</div>
+            <UiButton Variant="secondary"
+                    Class="mini-btn"
+                    @onpointerdown:stopPropagation="true"
+                    OnClick="ReturnToFullPanel">
+                @LocalizationService[UiTextKeys.MiniOpenFullPanel]
+            </UiButton>
+        </div>
+
+        <div class="mini-grid">
+            <UiField Label="@LocalizationService[UiTextKeys.SessionNameLabel]" Class="mini-field" For="mini-session-name">
+                <input id="mini-session-name"
+                       class="ui-input"
+                       @bind="State.SessionName"
+                       @bind:event="oninput"
+                       @onpointerdown:stopPropagation="true" />
+            </UiField>
+
+            <UiField Label="@LocalizationService[UiTextKeys.TranscriptionLanguageLabel]" Class="mini-field" For="mini-language">
+                <select id="mini-language"
+                        class="ui-input"
+                        @bind="State.SelectedLanguage"
+                        @onpointerdown:stopPropagation="true">
+                    @foreach (var option in State.LanguageOptions)
+                    {
+                        <option value="@option.Code">@option.DisplayName</option>
+                    }
+                </select>
+            </UiField>
+        </div>
+
+        <div class="mini-controls">
+            <UiButton Variant="@(State.IsRecording ? "danger" : "primary")"
+                    Class="mini-action"
+                    @onpointerdown:stopPropagation="true"
+                    OnClick="State.ToggleRecordingAsync">
+                @(State.IsRecording
+                    ? LocalizationService[UiTextKeys.MiniActionStop]
+                    : LocalizationService[UiTextKeys.MiniActionStart])
+            </UiButton>
+            <UiPill Class="mini-pill">@State.ElapsedText</UiPill>
+            <UiPill Class="mini-pill" Tone="accent">@State.StatusText</UiPill>
+        </div>
+
+        <UiMeter Value="State.AudioLevelPercent"
+                 Class="mini-meter"
+                 AriaLabel="@LocalizationService[UiTextKeys.LiveAudioLevel]" />
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        State.Changed += HandleChanged;
+        LocalizationService.LanguageChanged += HandleLanguageChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        MiniWidgetHost.Show();
+        await SyncMiniWidgetCornerAsync().ConfigureAwait(false);
+    }
+
+    public void Dispose()
+    {
+        State.Changed -= HandleChanged;
+        LocalizationService.LanguageChanged -= HandleLanguageChanged;
+        MiniWidgetHost.Hide();
+    }
+
+    private void HandleChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ReturnToFullPanel()
+    {
+        MiniWidgetHost.Hide();
+        Navigation.NavigateTo("/");
+    }
+
+    private void BeginWindowDrag(PointerEventArgs _)
+    {
+        MiniWidgetHost.BeginDrag();
+    }
+
+    private async Task SyncMiniWidgetCornerAsync()
+    {
+        await JsRuntime.InvokeVoidAsync(
+            "transcriberUi.setCssVar",
+            "--mini-widget-radius",
+            $"{MiniWidgetHost.MiniWidgetCornerRadiusDip}px");
+    }
+
+    private void HandleLanguageChanged(object? sender, string _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}

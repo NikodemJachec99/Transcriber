@@ -1,0 +1,34 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AlwaysOnTopTranscriber.Core.Theming.IThemeService ThemeService
+@inject IUiLocalizationService LocalizationService
+
+<div class="mini-shell" data-theme="@ThemeName" lang="@LocalizationService.CurrentLanguage">
+    @Body
+</div>
+
+@code {
+    private string ThemeName => ThemeService.IsDarkMode ? "dark" : "light";
+
+    protected override void OnInitialized()
+    {
+        ThemeService.ThemeChanged += HandleThemeChanged;
+        LocalizationService.LanguageChanged += HandleLanguageChanged;
+    }
+
+    public void Dispose()
+    {
+        ThemeService.ThemeChanged -= HandleThemeChanged;
+        LocalizationService.LanguageChanged -= HandleLanguageChanged;
+    }
+
+    private void HandleThemeChanged(object? sender, bool _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLanguageChanged(object? sender, string _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+}
