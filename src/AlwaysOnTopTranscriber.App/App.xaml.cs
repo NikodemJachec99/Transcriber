@@ -1,12 +1,14 @@
 using System.Threading;
 using System.Windows;
 using AlwaysOnTopTranscriber.Core.Audio;
+using AlwaysOnTopTranscriber.Core.Logging;
 using AlwaysOnTopTranscriber.Core.Models;
 using AlwaysOnTopTranscriber.Core.Sessions;
 using AlwaysOnTopTranscriber.Core.Storage;
 using AlwaysOnTopTranscriber.Core.Transcription;
 using AlwaysOnTopTranscriber.Core.Utilities;
 using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace AlwaysOnTopTranscriber.App;
 
@@ -23,9 +25,16 @@ public partial class App : Application
         try
         {
             var appPaths = AppPaths.CreateDefault();
-            _loggerFactory = LoggerFactory.Create(static builder =>
+
+            // Initialize Serilog to write logs to file
+            var serilogLogger = LoggingBootstrapper.BuildLogger(appPaths);
+            Log.Logger = serilogLogger;
+
+            // Create LoggerFactory that uses Serilog for file output
+            _loggerFactory = LoggerFactory.Create(builder =>
             {
                 builder.SetMinimumLevel(LogLevel.Information);
+                builder.AddSerilog(serilogLogger);
             });
 
             var settingsService = new SettingsService(appPaths, _loggerFactory.CreateLogger<SettingsService>());
@@ -83,6 +92,9 @@ public partial class App : Application
         _audioCaptureService?.Dispose();
         _localWhisperEngine?.Dispose();
         _loggerFactory?.Dispose();
+
+        // Flush and close Serilog
+        Log.CloseAndFlush();
 
         base.OnExit(e);
     }
