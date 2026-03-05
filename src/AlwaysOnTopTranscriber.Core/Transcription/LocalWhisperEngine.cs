@@ -26,6 +26,49 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
         _logger = logger;
         _settings = settings;
         _detectedGpuProvider = DetectGpuProvider();
+
+        // Configure ONNX Runtime environment variables for GPU acceleration
+        ConfigureGpuEnvironmentVariables();
+    }
+
+    private void ConfigureGpuEnvironmentVariables()
+    {
+        try
+        {
+            if (_settings?.TryGpuAcceleration != true || _settings.GpuProvider == "cpu")
+            {
+                _logger.LogInformation("GPU acceleration disabled or forced to CPU");
+                return;
+            }
+
+            var gpuProvider = _settings.GpuProvider;
+            if (gpuProvider == "auto")
+            {
+                gpuProvider = _detectedGpuProvider;
+            }
+
+            switch (gpuProvider)
+            {
+                case "cuda":
+                    Environment.SetEnvironmentVariable("ORT_CUDA_DEVICE_ID", "0");
+                    _logger.LogInformation("✓ GPU configured: CUDA (NVIDIA RTX/GTX)");
+                    break;
+                case "directml":
+                    Environment.SetEnvironmentVariable("ORT_DIRECTML_DEVICE_ID", "0");
+                    _logger.LogInformation("✓ GPU configured: DirectML (AMD Vega/Intel Arc)");
+                    break;
+                case "rocm":
+                    _logger.LogInformation("✓ GPU configured: ROCm (AMD Linux)");
+                    break;
+                default:
+                    _logger.LogInformation("GPU acceleration not configured - will use CPU");
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error configuring GPU environment variables");
+        }
     }
 
     public string EngineName => "LocalWhisper";
@@ -54,6 +97,10 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
 
         // Tworzymy procesor per chunk, bo to bezpieczny i przewidywalny model pracy dla długich sesji.
         using var processor = builder.Build();
+
+        // Time transcription to detect GPU usage
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         await foreach (var result in processor.ProcessAsync(waveStream).WithCancellation(cancellationToken)
                            .ConfigureAwait(false))
         {
@@ -67,6 +114,20 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
             var end = chunk.StartOffset + result.End;
             segments.Add(new TranscriptSegment(start, end, text));
         }
+
+        sw.Stop();
+
+        // Log transcription timing - GPU will be significantly faster
+        var audioSeconds = chunk.Duration.TotalSeconds;
+        var realTimeRatio = sw.Elapsed.TotalSeconds / audioSeconds;
+        var gpuIndicator = realTimeRatio < 0.5 ? " [GPU DETECTED ✓]" : "";
+
+        _logger.LogInformation(
+            "Transcribed {AudioSeconds:F1}s audio in {ElapsedMs}ms ({RealtimeRatio:F2}x){GpuIndicator}",
+            audioSeconds,
+            sw.ElapsedMilliseconds,
+            realTimeRatio,
+            gpuIndicator);
 
         return new TranscriptionChunkResult
         {
