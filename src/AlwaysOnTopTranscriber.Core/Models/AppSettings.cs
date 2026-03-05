@@ -67,13 +67,16 @@ public sealed class AppSettings
     public bool EnableDeferredTranscription { get; set; } = true;
 
     /// <summary>
-    /// Spróbuj użyć GPU acceleration (CUDA, DirectML, ROCm) dla Whisper.net.
+    /// Spróbuj użyć GPU acceleration dla Whisper.net.
+    /// Wymaga zainstalowanych odpowiednich pakietów runtime (Cuda, OpenVino).
     /// Fallback do CPU jeśli GPU niedostępna.
     /// </summary>
     public bool TryGpuAcceleration { get; set; } = true;
 
     /// <summary>
-    /// Dostawca GPU: "auto" (auto-detect), "cuda" (NVIDIA), "directml" (AMD/Intel), "rocm" (AMD Linux), "cpu" (force CPU).
+    /// Dostawca GPU: "auto" (auto-detect), "cuda" (NVIDIA RTX/GTX),
+    /// "openvino" (AMD Vega/Intel Arc), "rocm" (AMD Linux), "cpu" (force CPU).
+    /// Note: Whisper.net.Runtime.Cuda i Whisper.net.Runtime.OpenVino są wymagane.
     /// </summary>
     public string GpuProvider { get; set; } = "auto";
 }

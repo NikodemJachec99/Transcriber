@@ -51,11 +51,14 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
             {
                 case "cuda":
                     Environment.SetEnvironmentVariable("ORT_CUDA_DEVICE_ID", "0");
-                    _logger.LogInformation("✓ GPU configured: CUDA (NVIDIA RTX/GTX)");
+                    _logger.LogInformation("✓ GPU configured: CUDA (NVIDIA RTX/GTX) - Whisper.net.Runtime.Cuda required");
+                    break;
+                case "openvino":
+                    _logger.LogInformation("✓ GPU configured: OpenVINO (AMD Vega/Intel Arc) - Whisper.net.Runtime.OpenVino required");
                     break;
                 case "directml":
-                    Environment.SetEnvironmentVariable("ORT_DIRECTML_DEVICE_ID", "0");
-                    _logger.LogInformation("✓ GPU configured: DirectML (AMD Vega/Intel Arc)");
+                    // Note: DirectML is not directly exposed in Whisper.net; use OpenVINO instead on Windows for AMD/Intel
+                    _logger.LogInformation("⚠ DirectML not directly supported in Whisper.net - falling back to OpenVINO or CPU");
                     break;
                 case "rocm":
                     _logger.LogInformation("✓ GPU configured: ROCm (AMD Linux)");
@@ -195,7 +198,8 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
     }
 
     /// <summary>
-    /// Detectuje dostępny GPU provider (CUDA, DirectML, ROCm, CPU).
+    /// Detectuje dostępny GPU provider (CUDA, OpenVINO, ROCm, CPU).
+    /// Wymagane: Whisper.net.Runtime.Cuda i Whisper.net.Runtime.OpenVino dla GPU.
     /// Loguje znaleziony provider. Wsparcie GPU jest opcjonalne - fallback na CPU.
     /// </summary>
     private string DetectGpuProvider()
@@ -227,26 +231,28 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
     /// </summary>
     private string TryDetectGpu()
     {
-        // Na Windows - spróbuj DirectML (AMD Vega, Intel Arc) lub CUDA (NVIDIA)
+        // Na Windows - spróbuj CUDA (NVIDIA) lub OpenVINO (AMD/Intel)
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            // Spróbuj znaleźć AMD GPU przez DXGI/DirectX
-            if (HasWindowsGpu("AMD"))
-            {
-                _logger.LogInformation("Detectowano GPU: AMD (Vega, RDNA) - będzie używany DirectML");
-                return "directml";
-            }
-
+            // Spróbuj znaleźć NVIDIA GPU - najlepsze wsparcie
             if (HasWindowsGpu("NVIDIA"))
             {
                 _logger.LogInformation("Detectowano GPU: NVIDIA - będzie używany CUDA");
                 return "cuda";
             }
 
+            // Spróbuj znaleźć AMD GPU - OpenVINO dla Vega, RDNA
+            if (HasWindowsGpu("AMD"))
+            {
+                _logger.LogInformation("Detectowano GPU: AMD (Vega, RDNA) - będzie używany OpenVINO");
+                return "openvino";
+            }
+
+            // Spróbuj znaleźć Intel GPU - OpenVINO dla Arc
             if (HasWindowsGpu("Intel"))
             {
-                _logger.LogInformation("Detectowano GPU: Intel Arc - będzie używany DirectML");
-                return "directml";
+                _logger.LogInformation("Detectowano GPU: Intel Arc - będzie używany OpenVINO");
+                return "openvino";
             }
 
             _logger.LogInformation("Brak detectowanego GPU - użycie CPU");
