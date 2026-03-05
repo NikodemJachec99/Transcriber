@@ -332,13 +332,24 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
 
             proc.Start();
             var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(2000);
+            bool exited = proc.WaitForExit(5000);  // Increased timeout to 5 seconds
 
-            return output.Contains(vendor, StringComparison.OrdinalIgnoreCase);
+            if (!exited)
+            {
+                _logger.LogWarning("PowerShell GPU detection timeout after 5 seconds for vendor: {Vendor}", vendor);
+                try { proc.Kill(); } catch { }
+                return false;
+            }
+
+            _logger.LogDebug("PowerShell GPU output: {Output}", output);
+            bool found = output.Contains(vendor, StringComparison.OrdinalIgnoreCase);
+            _logger.LogDebug("GPU detection for vendor {Vendor}: {Found}", vendor, found);
+
+            return found;
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Nie można detectować GPU {Vendor}", vendor);
+            _logger.LogWarning(ex, "Nie można detectować GPU {Vendor}", vendor);
             return false;
         }
     }
