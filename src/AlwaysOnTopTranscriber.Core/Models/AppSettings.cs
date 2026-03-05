@@ -53,6 +53,12 @@ public sealed class AppSettings
     public string UiMode { get; set; } = "basic";
 
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Włącz live transkrypcję - wyłączenie oszczędza CPU/RAM dla długich sesji.
+    /// Transkrypcja będzie zapisywana bez względu na tę ustawienie.
+    /// </summary>
+    public bool EnableLiveTranscript { get; set; } = false;
 }
 
 public sealed class WidgetBounds

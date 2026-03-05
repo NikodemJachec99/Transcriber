@@ -184,7 +184,9 @@
                     <TextBlock Grid.Row="4" x:Name="ModelStatusTextBlock" Margin="0,12,0,0" Foreground="#1F2937" />
                     <ProgressBar Grid.Row="5" x:Name="DownloadProgressBar" Margin="0,6,0,0" Height="16" Minimum="0" Maximum="100" />
 
-                    <StackPanel Grid.Row="6" Margin="0,14,0,0">
+                    <CheckBox Grid.Row="6" x:Name="EnableLiveTranscriptCheckBox" Margin="0,12,0,0" Content="Włącz live transkrypcję (może zużywać więcej zasobów)" VerticalAlignment="Top" />
+
+                    <StackPanel Grid.Row="6" Margin="0,44,0,0">
                         <Button x:Name="SaveSettingsButton"
                                 Width="180"
                                 Height="34"

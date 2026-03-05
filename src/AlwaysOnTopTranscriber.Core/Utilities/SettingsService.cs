@@ -34,7 +34,8 @@ public sealed class SettingsService : ISettingsService
             if (!File.Exists(_appPaths.SettingsPath))
             {
                 var defaults = Normalize(new AppSettings());
-                SaveSync(defaults);
+                // Asynchroniczny zapis w tle, ale zwróć defaults od razu
+                _ = SaveAsync(defaults, CancellationToken.None).ConfigureAwait(false);
                 return defaults;
             }
 

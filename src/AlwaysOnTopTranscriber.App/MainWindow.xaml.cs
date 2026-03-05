@@ -16,6 +16,8 @@ namespace AlwaysOnTopTranscriber.App;
 
 public partial class MainWindow : Window
 {
+    private const int MaxDisplayedChars = 50_000; // Limit display to prevent UI slowdown on long recordings
+
     private readonly AppPaths _appPaths;
     private readonly ISettingsService _settingsService;
     private readonly IModelManager _modelManager;
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
 
     private AppSettings _settings;
     private bool _isBusy;
+    private string _fullTranscriptText = string.Empty;
 
     public MainWindow(
         AppPaths appPaths,
@@ -47,6 +50,7 @@ public partial class MainWindow : Window
         SessionsDataGrid.ItemsSource = _sessionRows;
         SessionNameTextBox.Text = BuildDefaultSessionName();
         SelectLanguage(_settings.Language);
+        EnableLiveTranscriptCheckBox.IsChecked = _settings.EnableLiveTranscript;
 
         _sessionService.RecordingStateChanged += OnRecordingStateChanged;
         _sessionService.LiveTranscriptUpdated += OnLiveTranscriptUpdated;
@@ -124,6 +128,7 @@ public partial class MainWindow : Window
         _settings.ModelPath = string.IsNullOrWhiteSpace(CustomModelPathTextBox.Text)
             ? null
             : CustomModelPathTextBox.Text.Trim();
+        _settings.EnableLiveTranscript = EnableLiveTranscriptCheckBox.IsChecked ?? true;
 
         await _settingsService.SaveAsync(_settings, CancellationToken.None);
         FooterStatusTextBlock.Text = "Ustawienia zapisane.";
@@ -323,8 +328,21 @@ public partial class MainWindow : Window
         {
             ElapsedTextBlock.Text = update.Elapsed.ToString(@"hh\:mm\:ss");
             AudioLevelBar.Value = Math.Round(Math.Clamp(update.SmoothedAudioLevel * 100d, 0d, 100d), 1);
-            TranscriptTextBox.Text = update.FullText;
-            TranscriptTextBox.ScrollToEnd();
+
+            if (_settings.EnableLiveTranscript)
+            {
+                _fullTranscriptText = update.FullText;
+                // Display only last N characters to prevent UI slowdown on long recordings
+                var displayText = _fullTranscriptText.Length > MaxDisplayedChars
+                    ? _fullTranscriptText.Substring(_fullTranscriptText.Length - MaxDisplayedChars)
+                    : _fullTranscriptText;
+
+                TranscriptTextBox.Text = displayText;
+                if (TranscriptTextBox.ActualHeight > 0)
+                {
+                    TranscriptTextBox.ScrollToEnd();
+                }
+            }
         });
     }
 
