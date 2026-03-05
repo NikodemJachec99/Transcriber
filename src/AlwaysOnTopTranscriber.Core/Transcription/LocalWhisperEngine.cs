@@ -161,9 +161,25 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
             }
 
             _factory?.Dispose();
-            _factory = WhisperFactory.FromPath(modelPath);
+
+            // Enable GPU if configured - REQUIRED for CUDA to work in Whisper.net
+            var factoryOptions = new WhisperFactoryOptions
+            {
+                UseGpu = _settings?.TryGpuAcceleration == true,
+                GpuDevice = 0
+            };
+
+            _factory = WhisperFactory.FromPath(modelPath, factoryOptions);
             _loadedModelPath = modelPath;
-            _logger.LogInformation("Załadowano model Whisper: {ModelPath}", modelPath);
+
+            if (factoryOptions.UseGpu)
+            {
+                _logger.LogInformation("Załadowano model Whisper z GPU acceleration: {ModelPath}", modelPath);
+            }
+            else
+            {
+                _logger.LogInformation("Załadowano model Whisper (CPU mode): {ModelPath}", modelPath);
+            }
         }
         finally
         {
