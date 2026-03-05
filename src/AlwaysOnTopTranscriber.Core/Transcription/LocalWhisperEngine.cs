@@ -35,9 +35,13 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
     {
         try
         {
+            // Clear any existing GPU environment variables to ensure clean state
+            Environment.SetEnvironmentVariable("ORT_CUDA_DEVICE_ID", null);
+            Environment.SetEnvironmentVariable("ORT_DIRECTML_DEVICE_ID", null);
+
             if (_settings?.TryGpuAcceleration != true || _settings.GpuProvider == "cpu")
             {
-                _logger.LogInformation("GPU acceleration disabled or forced to CPU");
+                _logger.LogInformation("GPU acceleration disabled or forced to CPU - will use Whisper.net CPU runtime");
                 return;
             }
 
@@ -70,7 +74,7 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error configuring GPU environment variables");
+            _logger.LogWarning(ex, "Error configuring GPU environment variables - will fallback to CPU");
         }
     }
 
