@@ -98,6 +98,8 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
 
     public event EventHandler<SessionEntity>? SessionSaved;
 
+    public event EventHandler<float>? AudioLevelChanged;
+
     public bool IsRecording => Volatile.Read(ref _isRecording) == 1;
 
     public async Task StartAsync(string sessionName)
@@ -648,6 +650,8 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
 
         Volatile.Write(ref _currentAudioLevel, current);
         Volatile.Write(ref _smoothedAudioLevel, smoothed);
+
+        AudioLevelChanged?.Invoke(this, smoothed);
     }
 
     private static float ComputeFrameLevel(AudioFrame frame)

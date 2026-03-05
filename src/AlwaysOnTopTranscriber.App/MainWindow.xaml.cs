@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private AppSettings _settings;
     private bool _isBusy;
     private string _fullTranscriptText = string.Empty;
+    private MiniWidget _miniWidget;
 
     public MainWindow(
         AppPaths appPaths,
@@ -356,6 +357,22 @@ public partial class MainWindow : Window
     private async void RefreshSessionsButton_OnClick(object sender, RoutedEventArgs e)
     {
         await RefreshSessionsAsync();
+    }
+
+    private void ShowMiniWidgetButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_miniWidget == null || !_miniWidget.IsVisible)
+        {
+            _miniWidget = new MiniWidget(_sessionService, _settings)
+            {
+                SessionNameTextBlock = { Text = SessionNameTextBox.Text }
+            };
+            _miniWidget.Show();
+        }
+        else
+        {
+            _miniWidget.Activate();
+        }
     }
 
     private void OpenDataFolderButton_OnClick(object sender, RoutedEventArgs e)

@@ -14,6 +14,8 @@ public interface ITranscriptionSessionService
 
     event EventHandler<SessionEntity>? SessionSaved;
 
+    event EventHandler<float>? AudioLevelChanged;
+
     bool IsRecording { get; }
 
     Task StartAsync(string sessionName);

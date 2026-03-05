@@ -19,6 +19,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
@@ -33,6 +34,14 @@
                 </StackPanel>
 
                 <Button Grid.Column="1"
+                        x:Name="ShowMiniWidgetButton"
+                        Content="🔹 Widget"
+                        Height="34"
+                        Width="100"
+                        Margin="12,0,0,0"
+                        Click="ShowMiniWidgetButton_OnClick" />
+
+                <Button Grid.Column="2"
                         x:Name="OpenDataFolderButton"
                         Content="Otwórz folder danych"
                         Height="34"

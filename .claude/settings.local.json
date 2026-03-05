@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet restore AlwaysOnTopTranscriber.sln)",
+      "Bash(cmd /c \"scripts\\\\install-transcriber.cmd\")",
+      "Bash(git add README.md PERFORMANCE_GUIDE.md scripts/ src/AlwaysOnTopTranscriber.App/MainWindow.xaml src/AlwaysOnTopTranscriber.App/MainWindow.xaml.cs src/AlwaysOnTopTranscriber.Core/Models/AppSettings.cs src/AlwaysOnTopTranscriber.Core/Utilities/SettingsService.cs)",
+      "Bash(git commit:*)",
+      "Bash(git add scripts/install-transcriber.cmd)",
+      "Bash(git push origin main)",
+      "Bash(git add scripts/install.ps1 README.md)",
+      "Bash(git add scripts/install.ps1)",
+      "Bash(dotnet build -c Release)",
+      "Bash(git add src/AlwaysOnTopTranscriber.App/MainWindow.xaml src/AlwaysOnTopTranscriber.App/MainWindow.xaml.cs)",
+      "Bash(git add -A)"
+    ]
+  }
+}
