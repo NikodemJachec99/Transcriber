@@ -16,7 +16,7 @@
     <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
     <!-- GPU Acceleration for NVIDIA RTX (CUDA) -->
     <PackageReference Include="Whisper.net.Runtime.Cuda" Version="1.9.0" />
-    <!-- GPU Acceleration for AMD Vega 8 and Intel Arc (OpenVINO) -->
-    <PackageReference Include="Whisper.net.Runtime.OpenVino" Version="1.9.0" />
+    <!-- TODO: OpenVINO for AMD Vega/Intel Arc - packaging issues in v1.9.0, will revisit -->
+    <!-- <PackageReference Include="Whisper.net.Runtime.OpenVino" Version="1.9.0" /> -->
   </ItemGroup>
 </Project>

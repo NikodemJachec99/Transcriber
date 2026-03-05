@@ -58,7 +58,7 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
                     _logger.LogInformation("✓ GPU configured: CUDA (NVIDIA RTX/GTX) - Whisper.net.Runtime.Cuda required");
                     break;
                 case "openvino":
-                    _logger.LogInformation("✓ GPU configured: OpenVINO (AMD Vega/Intel Arc) - Whisper.net.Runtime.OpenVino required");
+                    _logger.LogWarning("OpenVINO is not currently available (packaging issues in Whisper.net 1.9.0). Falling back to CPU mode. TODO: Re-enable in future version.");
                     break;
                 case "directml":
                     // Note: DirectML is not directly exposed in Whisper.net; use OpenVINO instead on Windows for AMD/Intel
@@ -202,8 +202,9 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
     }
 
     /// <summary>
-    /// Detectuje dostępny GPU provider (CUDA, OpenVINO, ROCm, CPU).
-    /// Wymagane: Whisper.net.Runtime.Cuda i Whisper.net.Runtime.OpenVino dla GPU.
+    /// Detectuje dostępny GPU provider (CUDA, ROCm, CPU).
+    /// Wymagane: Whisper.net.Runtime.Cuda dla CUDA acceleration.
+    /// OpenVINO support disabled temporarily (Whisper.net 1.9.0 packaging issues).
     /// Loguje znaleziony provider. Wsparcie GPU jest opcjonalne - fallback na CPU.
     /// </summary>
     private string DetectGpuProvider()
@@ -245,18 +246,18 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
                 return "cuda";
             }
 
-            // Spróbuj znaleźć AMD GPU - OpenVINO dla Vega, RDNA
+            // AMD Vega/RDNA - OpenVINO not available in current Whisper.net version
             if (HasWindowsGpu("AMD"))
             {
-                _logger.LogInformation("Detectowano GPU: AMD (Vega, RDNA) - będzie używany OpenVINO");
-                return "openvino";
+                _logger.LogWarning("Detectowano GPU: AMD (Vega, RDNA), ale OpenVINO nie jest dostępne. Będzie używany CPU mode. TODO: Add OpenVINO support");
+                return "cpu";
             }
 
-            // Spróbuj znaleźć Intel GPU - OpenVINO dla Arc
+            // Intel Arc - OpenVINO not available in current Whisper.net version
             if (HasWindowsGpu("Intel"))
             {
-                _logger.LogInformation("Detectowano GPU: Intel Arc - będzie używany OpenVINO");
-                return "openvino";
+                _logger.LogWarning("Detectowano GPU: Intel Arc, ale OpenVINO nie jest dostępne. Będzie używany CPU mode. TODO: Add OpenVINO support");
+                return "cpu";
             }
 
             _logger.LogInformation("Brak detectowanego GPU - użycie CPU");

@@ -75,8 +75,9 @@ public sealed class AppSettings
 
     /// <summary>
     /// Dostawca GPU: "auto" (auto-detect), "cuda" (NVIDIA RTX/GTX),
-    /// "openvino" (AMD Vega/Intel Arc), "rocm" (AMD Linux), "cpu" (force CPU).
-    /// Note: Whisper.net.Runtime.Cuda i Whisper.net.Runtime.OpenVino są wymagane.
+    /// "rocm" (AMD Linux), "cpu" (force CPU).
+    /// Note: Whisper.net.Runtime.Cuda jest wymagany dla CUDA.
+    /// TODO: Add OpenVINO for AMD Vega/Intel Arc support (v1.9.0 packaging issues).
     /// </summary>
     public string GpuProvider { get; set; } = "auto";
 }
