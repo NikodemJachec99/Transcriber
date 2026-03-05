@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using AlwaysOnTopTranscriber.Core.Models;
 using AlwaysOnTopTranscriber.Core.Sessions;
 using AlwaysOnTopTranscriber.Core.Storage;
@@ -60,9 +61,19 @@ public partial class MainWindow : Window
 
         // Subscribe to slider changes for real-time value display
         ChunkLengthSlider.ValueChanged += (s, e) =>
+        {
             ChunkLengthValueTextBlock.Text = $"{(int)ChunkLengthSlider.Value}s";
+            PreviewChunkLengthTextBlock.Text = $"{(int)ChunkLengthSlider.Value}s";
+        };
         AudioBufferSlider.ValueChanged += (s, e) =>
+        {
             AudioBufferValueTextBlock.Text = ((int)AudioBufferSlider.Value).ToString();
+            PreviewAudioBufferTextBlock.Text = $"{(int)AudioBufferSlider.Value} ramek";
+        };
+
+        // Initialize quick toggles
+        LiveTranscriptQuickToggle.IsChecked = _settings.EnableLiveTranscript;
+        AutoPunctuationQuickToggle.IsChecked = _settings.AutoPunctuation;
 
         _sessionService.RecordingStateChanged += OnRecordingStateChanged;
         _sessionService.LiveTranscriptUpdated += OnLiveTranscriptUpdated;
@@ -78,6 +89,7 @@ public partial class MainWindow : Window
         await RefreshModelListAsync();
         await RefreshSessionsAsync();
         UpdateModelStatus();
+        UpdateSettingsPreview();
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -92,9 +104,11 @@ public partial class MainWindow : Window
     {
         var models = await _modelManager.GetAvailableAsync(CancellationToken.None);
         ModelComboBox.ItemsSource = models;
+        LiveModelComboBox.ItemsSource = models;
 
         var selected = models.FirstOrDefault(x => x.Name == _settings.ModelName);
         ModelComboBox.SelectedItem = selected ?? models.FirstOrDefault();
+        LiveModelComboBox.SelectedItem = selected ?? models.FirstOrDefault();
 
         if (selected is null && models.Count > 0)
         {
@@ -146,6 +160,7 @@ public partial class MainWindow : Window
 
         await _settingsService.SaveAsync(_settings, CancellationToken.None);
         FooterStatusTextBlock.Text = "Ustawienia zapisane.";
+        UpdateSettingsPreview();
     }
 
     private async void StartStopButton_OnClick(object sender, RoutedEventArgs e)
@@ -210,6 +225,58 @@ public partial class MainWindow : Window
         ChunkLengthValueTextBlock.Text = "10s";
         AudioBufferValueTextBlock.Text = "2048";
         FooterStatusTextBlock.Text = "Ustawienia zaawansowane przywrócone do wartości domyślnych.";
+    }
+
+    private void LiveTranscriptQuickToggle_OnToggled(object sender, RoutedEventArgs e)
+    {
+        _settings.EnableLiveTranscript = LiveTranscriptQuickToggle.IsChecked ?? false;
+        EnableLiveTranscriptCheckBox.IsChecked = _settings.EnableLiveTranscript;
+    }
+
+    private void AutoPunctuationQuickToggle_OnToggled(object sender, RoutedEventArgs e)
+    {
+        _settings.AutoPunctuation = AutoPunctuationQuickToggle.IsChecked ?? true;
+    }
+
+    private void LiveModelComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (LiveModelComboBox.SelectedItem is ModelDescriptor selected)
+        {
+            _settings.ModelName = selected.Name;
+            ModelComboBox.SelectedItem = selected;
+            UpdateSettingsPreview();
+        }
+    }
+
+    private void UpdateSettingsPreview()
+    {
+        PreviewChunkLengthTextBlock.Text = $"{_settings.ChunkLengthSeconds}s";
+        PreviewAudioBufferTextBlock.Text = $"{_settings.MaxBufferedAudioFrames} ramek";
+        var hasCustomModel = !string.IsNullOrWhiteSpace(_settings.ModelPath);
+        PreviewCustomModelTextBlock.Text = hasCustomModel ? "Tak" : "Nie";
+    }
+
+    private void GoToSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var tabControl = FindVisualParent<TabControl>(this);
+        if (tabControl != null && tabControl.Items.Count > 1)
+        {
+            tabControl.SelectedIndex = 1; // Switch to Settings tab (index 1)
+        }
+    }
+
+    private static T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+    {
+        DependencyObject parent = VisualTreeHelper.GetParent(child);
+        while (parent != null)
+        {
+            if (parent is T parentAsT)
+            {
+                return parentAsT;
+            }
+            parent = VisualTreeHelper.GetParent(parent);
+        }
+        return null;
     }
 
     private async void DownloadModelButton_OnClick(object sender, RoutedEventArgs e)

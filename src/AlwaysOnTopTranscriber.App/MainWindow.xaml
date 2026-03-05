@@ -49,9 +49,12 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
+                    <!-- Session Setup Row -->
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -84,7 +87,58 @@
                                 Click="StartStopButton_OnClick" />
                     </Grid>
 
+                    <!-- Quick Settings Row -->
                     <Grid Grid.Row="1" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="200" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Margin="0,0,10,0">
+                            <TextBlock Text="Model" FontWeight="SemiBold" FontSize="11" />
+                            <ComboBox x:Name="LiveModelComboBox" Height="32" DisplayMemberPath="Name" SelectedValuePath="Name" SelectionChanged="LiveModelComboBox_OnSelectionChanged" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Margin="10,0,10,0">
+                            <CheckBox x:Name="LiveTranscriptQuickToggle" Margin="0,16,0,0" Content="🔴 Live Transcript" VerticalAlignment="Center" Checked="LiveTranscriptQuickToggle_OnToggled" Unchecked="LiveTranscriptQuickToggle_OnToggled" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Margin="10,0,0,0">
+                            <CheckBox x:Name="AutoPunctuationQuickToggle" Margin="0,16,0,0" Content="📝 Auto Punctuation" VerticalAlignment="Center" Checked="AutoPunctuationQuickToggle_OnToggled" Unchecked="AutoPunctuationQuickToggle_OnToggled" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Settings Preview Row -->
+                    <Border Grid.Row="2" Margin="0,12,0,0" Padding="10" CornerRadius="8" Background="#EEF2FF" BorderThickness="1" BorderBrush="#DDE3EF">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="160" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel>
+                                <TextBlock Text="Chunk Length" FontSize="10" Foreground="#4B5563" />
+                                <TextBlock x:Name="PreviewChunkLengthTextBlock" Text="10s" FontWeight="SemiBold" Foreground="#1F2937" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                <TextBlock Text="Audio Buffer" FontSize="10" Foreground="#4B5563" />
+                                <TextBlock x:Name="PreviewAudioBufferTextBlock" Text="2048 ramek" FontWeight="SemiBold" Foreground="#1F2937" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Margin="10,0,0,0">
+                                <TextBlock Text="Plik niestandardowy" FontSize="10" Foreground="#4B5563" />
+                                <TextBlock x:Name="PreviewCustomModelTextBlock" Text="Nie" FontWeight="SemiBold" Foreground="#1F2937" />
+                            </StackPanel>
+
+                            <Button Grid.Column="3" Margin="10,0,0,0" Content="Przejdź do ustawień" Click="GoToSettingsButton_OnClick" Height="34" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="3" Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="160" />
                             <ColumnDefinition Width="160" />
@@ -122,7 +176,7 @@
                         </Border>
                     </Grid>
 
-                    <Border Grid.Row="2"
+                    <Border Grid.Row="4"
                             Margin="0,12,0,0"
                             Padding="10"
                             CornerRadius="8"
@@ -135,7 +189,7 @@
                                    TextWrapping="Wrap" />
                     </Border>
 
-                    <TextBox Grid.Row="3"
+                    <TextBox Grid.Row="5"
                              x:Name="TranscriptTextBox"
                              Margin="0,12,0,0"
                              FontFamily="Consolas"
