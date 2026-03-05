@@ -472,6 +472,26 @@ public partial class MainWindow : Window
             ElapsedTextBlock.Text = update.Elapsed.ToString(@"hh\:mm\:ss");
             AudioLevelBar.Value = Math.Round(Math.Clamp(update.SmoothedAudioLevel * 100d, 0d, 100d), 1);
 
+            // Deferred transcription progress
+            if (update.IsTranscriptionInProgress)
+            {
+                DeferredTranscriptionBorder.Visibility = Visibility.Visible;
+                TranscribeNowButton.Visibility = Visibility.Collapsed;
+                TranscriptionProgressBar.Visibility = Visibility.Visible;
+                TranscriptionProgressBar.Value = update.TranscriptionProgressPercent;
+                TranscriptionProgressTextBlock.Text =
+                    $"Transkrypcja w toku: {update.TranscribedChunks}/{update.TotalChunksToTranscribe} " +
+                    $"({update.TranscriptionProgressPercent}%)";
+            }
+            else if (update.TotalChunksToTranscribe > 0 && update.TranscribedChunks == 0)
+            {
+                // Nagranie gotowe, czekamy na kliknięcie "Transkrybuj teraz"
+                DeferredTranscriptionBorder.Visibility = Visibility.Visible;
+                TranscribeNowButton.Visibility = Visibility.Visible;
+                TranscriptionProgressBar.Visibility = Visibility.Collapsed;
+                TranscriptionProgressTextBlock.Text = $"Chunks do przetworzenia: {update.TotalChunksToTranscribe}";
+            }
+
             if (_settings.EnableLiveTranscript)
             {
                 _fullTranscriptText = update.FullText;
@@ -534,6 +554,30 @@ public partial class MainWindow : Window
     }
 
     private static string BuildDefaultSessionName() => $"Sesja_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
+
+    private async void TranscribeNowButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            TranscribeNowButton.IsEnabled = false;
+            TranscriptionProgressBar.Visibility = Visibility.Visible;
+            TranscriptionProgressTextBlock.Text = "Inicjowanie transkrypcji...";
+
+            // Startuj transkrypcję asynchronicznie
+            await _sessionService.StartTranscriptionAsync().ConfigureAwait(true);
+
+            FooterStatusTextBlock.Text = "Transkrypcja zakończona pomyślnie";
+        }
+        catch (Exception ex)
+        {
+            FooterStatusTextBlock.Text = $"Błąd transkrypcji: {ex.Message}";
+            _logger.LogError(ex, "Błąd przy transkrypcji ręcznej");
+        }
+        finally
+        {
+            TranscribeNowButton.IsEnabled = true;
+        }
+    }
 
     private sealed class SessionRow
     {

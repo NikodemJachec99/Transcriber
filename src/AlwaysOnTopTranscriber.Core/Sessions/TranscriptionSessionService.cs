@@ -48,6 +48,9 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
     private string _modelName = "base";
     private Exception? _pipelineError;
     private int _isRecording;
+    private SessionState _sessionState = SessionState.Idle;
+    private bool _transcriptionStarted = false;
+    private long _totalChunksCreatedDuringRecording = 0;
     private long _framesEnqueued;
     private long _framesDequeued;
     private long _chunksEnqueued;
@@ -101,6 +104,24 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
     public event EventHandler<float>? AudioLevelChanged;
 
     public bool IsRecording => Volatile.Read(ref _isRecording) == 1;
+
+    public SessionState CurrentState
+    {
+        get
+        {
+            lock (_cacheSync)
+            {
+                return _sessionState;
+            }
+        }
+        private set
+        {
+            lock (_cacheSync)
+            {
+                _sessionState = value;
+            }
+        }
+    }
 
     public async Task StartAsync(string sessionName)
     {
@@ -167,12 +188,26 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             _audioCaptureService.WarningRaised += OnCaptureWarning;
 
             _chunkerTask = RunChunkerAsync(_sessionCts.Token);
-            _transcriberTask = RunTranscriberAsync(_sessionCts.Token);
+
+            // Deferred transcription: nie startuj transcriberTask jeśli wyłączone
+            if (_activeSettings.EnableDeferredTranscription)
+            {
+                _transcriberTask = Task.CompletedTask;  // Placeholder, będzie startana ręcznie
+                _transcriptionStarted = false;
+                _totalChunksCreatedDuringRecording = 0;
+                _logger.LogInformation("Deferred transcription enabled - transkrypcja rozpocznie się manualnie");
+            }
+            else
+            {
+                _transcriberTask = RunTranscriberAsync(_sessionCts.Token);
+                _transcriptionStarted = true;
+            }
 
             await _audioCaptureService.StartAsync(_sessionCts.Token).ConfigureAwait(false);
 
             _timer = new Timer(_ => PublishUpdate(), null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
             Interlocked.Exchange(ref _isRecording, 1);
+            CurrentState = SessionState.Recording;
             RecordingStateChanged?.Invoke(this, true);
             _logger.LogInformation("Rozpoczęto sesję transkrypcji: {Name}", _sessionName);
         }
@@ -221,10 +256,24 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             }
 
             _chunkChannel?.Writer.TryComplete();
+
+            // W deferred mode, nie czekaj na transkrypcję - zostanie uruchomiona ręcznie
+            if (_activeSettings?.EnableDeferredTranscription == true && !_transcriptionStarted)
+            {
+                _totalChunksCreatedDuringRecording = Interlocked.Read(ref _chunksEnqueued);
+                CurrentState = SessionState.Recorded;
+                _logger.LogInformation("Nagranie zakończone. Transkrypcja zostanie uruchomiona ręcznie. " +
+                    "Utworzono {ChunkCount} chunks.", _totalChunksCreatedDuringRecording);
+                // Nie zapisuj sesji do bazy jeszcze - będzie po transkrypcji
+                return;
+            }
+
             if (_transcriberTask is not null)
             {
                 await _transcriberTask.ConfigureAwait(false);
             }
+
+            CurrentState = SessionState.Completed;
 
             var endUtc = DateTimeOffset.UtcNow;
             var transcript = BuildTranscriptTextFromSettings();
@@ -424,6 +473,10 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
 
         var (segments, previewLines, fullText) = GetCachedTranscriptView(mode, separator, previewNewestFirst);
 
+        var isTranscribingDeferred = CurrentState == SessionState.Transcribing;
+        var totalChunks = isTranscribingDeferred ? (int)_totalChunksCreatedDuringRecording : (int)Interlocked.Read(ref _chunksEnqueued);
+        var transcribedChunks = (int)Interlocked.Read(ref _chunksProcessed);
+
         var update = new LiveTranscriptUpdate
         {
             Segments = segments,
@@ -434,8 +487,11 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             SmoothedAudioLevel = Volatile.Read(ref _smoothedAudioLevel),
             PendingAudioFrames = (int)Math.Max(0, Interlocked.Read(ref _framesEnqueued) - Interlocked.Read(ref _framesDequeued)),
             PendingChunks = (int)Math.Max(0, Interlocked.Read(ref _chunksEnqueued) - Interlocked.Read(ref _chunksDequeued)),
-            ProcessedChunks = (int)Interlocked.Read(ref _chunksProcessed),
-            ProcessingLag = TimeSpan.FromTicks(Math.Max(0, Interlocked.Read(ref _processingLagTicks)))
+            ProcessedChunks = transcribedChunks,
+            ProcessingLag = TimeSpan.FromTicks(Math.Max(0, Interlocked.Read(ref _processingLagTicks))),
+            TotalChunksToTranscribe = totalChunks,
+            TranscribedChunks = transcribedChunks,
+            IsTranscriptionInProgress = isTranscribingDeferred
         };
         LiveTranscriptUpdated?.Invoke(this, update);
     }
@@ -730,5 +786,87 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Ręcznie startuje transkrypcję dla nagrania w stanie "Recorded".
+    /// Używane w deferred transcription mode.
+    /// </summary>
+    public async Task StartTranscriptionAsync()
+    {
+        await _lifecycleLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (CurrentState != SessionState.Recorded)
+            {
+                _logger.LogWarning("Transkrypcja może być uruchomiona tylko z stanu 'Recorded', aktualny stan: {State}",
+                    CurrentState);
+                return;
+            }
+
+            if (_transcriptionStarted)
+            {
+                _logger.LogWarning("Transkrypcja została już uruchomiona");
+                return;
+            }
+
+            if (_sessionCts is null || _sessionCts.IsCancellationRequested)
+            {
+                _logger.LogError("Sesja została anulowana, transkrypcja niemożliwa");
+                return;
+            }
+
+            _transcriptionStarted = true;
+            CurrentState = SessionState.Transcribing;
+            _logger.LogInformation("Rozpoczęto ręczną transkrypcję. Total chunks: {TotalChunks}",
+                _totalChunksCreatedDuringRecording);
+
+            // Startuj transcriberTask jeśli jeszcze nie została uruchomiona
+            _transcriberTask = RunTranscriberAsync(_sessionCts.Token);
+            await _transcriberTask.ConfigureAwait(false);
+
+            // Po zakończeniu transkrypcji, zapisz sesję
+            var endUtc = DateTimeOffset.UtcNow;
+            var transcript = BuildTranscriptTextFromSettings();
+            var segments = _aggregator.Snapshot();
+            var snapshot = new SessionSnapshot
+            {
+                Name = _sessionName,
+                StartTimeUtc = _sessionStartUtc,
+                EndTimeUtc = endUtc,
+                EngineType = _engineType,
+                ModelName = _modelName,
+                Segments = segments,
+                TranscriptText = transcript
+            };
+
+            var files = await _transcriptFileWriter.WriteAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+            var session = new SessionEntity
+            {
+                Name = _sessionName,
+                StartTimeUtc = _sessionStartUtc,
+                EndTimeUtc = endUtc,
+                DurationSeconds = (long)(endUtc - _sessionStartUtc).TotalSeconds,
+                SegmentCount = segments.Count,
+                TranscriptFilePath = files.FirstOrDefault(f => f.EndsWith(".md")),
+                CreatedAtUtc = DateTimeOffset.UtcNow
+            };
+
+            await _sessionRepository.SaveAsync(session, CancellationToken.None).ConfigureAwait(false);
+            SessionSaved?.Invoke(this, session);
+
+            CurrentState = SessionState.Completed;
+            _logger.LogInformation("Transkrypcja i zapis sesji zakończone");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Błąd podczas transkrypcji ręcznej");
+            _pipelineError = ex;
+            throw;
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
     }
 }

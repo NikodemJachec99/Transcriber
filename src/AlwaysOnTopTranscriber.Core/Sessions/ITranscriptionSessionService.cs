@@ -18,7 +18,14 @@ public interface ITranscriptionSessionService
 
     bool IsRecording { get; }
 
+    SessionState CurrentState { get; }
+
     Task StartAsync(string sessionName);
 
     Task StopAsync();
+
+    /// <summary>
+    /// Ręcznie startuje transkrypcję dla nagrania w stanie "Recorded" (deferred mode).
+    /// </summary>
+    Task StartTranscriptionAsync();
 }

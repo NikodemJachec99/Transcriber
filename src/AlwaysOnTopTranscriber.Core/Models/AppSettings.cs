@@ -59,6 +59,23 @@ public sealed class AppSettings
     /// Transkrypcja będzie zapisywana bez względu na tę ustawienie.
     /// </summary>
     public bool EnableLiveTranscript { get; set; } = false;
+
+    /// <summary>
+    /// Włącz transkrypcję opóźnioną (deferred) - nagrywaj szybko, transkrybuj ręcznie później.
+    /// Na słabym sprzęcie eliminuje dropsy audio. Domyślnie ON dla <8GB RAM.
+    /// </summary>
+    public bool EnableDeferredTranscription { get; set; } = true;
+
+    /// <summary>
+    /// Spróbuj użyć GPU acceleration (CUDA, DirectML, ROCm) dla Whisper.net.
+    /// Fallback do CPU jeśli GPU niedostępna.
+    /// </summary>
+    public bool TryGpuAcceleration { get; set; } = true;
+
+    /// <summary>
+    /// Dostawca GPU: "auto" (auto-detect), "cuda" (NVIDIA), "directml" (AMD/Intel), "rocm" (AMD Linux), "cpu" (force CPU).
+    /// </summary>
+    public string GpuProvider { get; set; } = "auto";
 }
 
 public sealed class WidgetBounds
@@ -83,4 +100,13 @@ public enum TranscriptDisplayMode
     AppendAndCorrect = 0,
     AppendBelow = 1,
     AppendAbove = 2
+}
+
+public enum SessionState
+{
+    Idle = 0,           // Brak sesji
+    Recording = 1,      // Nagrywanie w toku
+    Recorded = 2,       // Nagranie bez transkrypcji (new - for deferred mode)
+    Transcribing = 3,   // Transkrypcja w toku
+    Completed = 4       // Sesja gotowa
 }

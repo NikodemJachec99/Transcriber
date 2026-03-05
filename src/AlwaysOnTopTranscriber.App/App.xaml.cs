@@ -29,10 +29,13 @@ public partial class App : Application
             });
 
             var settingsService = new SettingsService(appPaths, _loggerFactory.CreateLogger<SettingsService>());
+            var settings = settingsService.Load();
             var modelManager = new ModelManager(appPaths, _loggerFactory.CreateLogger<ModelManager>());
             var audioCaptureService = new WasapiLoopbackCaptureService(
                 _loggerFactory.CreateLogger<WasapiLoopbackCaptureService>());
-            var localWhisperEngine = new LocalWhisperEngine(_loggerFactory.CreateLogger<LocalWhisperEngine>());
+            var localWhisperEngine = new LocalWhisperEngine(
+                _loggerFactory.CreateLogger<LocalWhisperEngine>(),
+                settings);
             var engineFactory = new TranscriptionEngineFactory(localWhisperEngine, new CloudEnginePlaceholder());
             var sessionRepository = new SessionRepository(appPaths, _loggerFactory.CreateLogger<SessionRepository>());
             await sessionRepository.InitializeAsync(CancellationToken.None);
