@@ -20,28 +20,30 @@ cd Transcriber
 Ta opcja:
 - buduje aplikację z kodu,
 - instaluje ją lokalnie,
-- tworzy skrót na pulpicie.
+- tworzy skrót na pulpicie i w menu Start.
 
-### Szybki start:
-1. Otwórz **CMD** w folderze projektu
-   - Shift + Right Click → Open PowerShell/CMD here
-   - Lub: Start → cmd → Enter
-2. Wpisz i naciśnij Enter:
-```cmd
-scripts\install-transcriber.cmd
+### Szybki start (jedną komendą):
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force; .\scripts\install.ps1
 ```
+
+**Krok po kroku:**
+1. Otwórz **PowerShell** w folderze projektu
+   - Shift + Right Click → Open PowerShell Here
+   - Lub: Start → PowerShell → Enter → `cd C:\Users\...\Transcriber`
+2. Wklej komendę wyżej i naciśnij Enter
 
 **Co robi skrypt:**
 - ✅ Sprawdza .NET SDK 8.0
-- ✅ Instaluje MAUI workload (jeśli potrzeba)
-- ✅ Buduje aplikację w Release mode
-- ✅ Kopie do `%LocalAppData%\Programs\Transcriber v1.2`
-- ✅ Tworzy skrót na pulpicie
+- ✅ Instaluje MAUI workload
+- ✅ Buduje aplikację (Release mode)
+- ✅ Instaluje do `%LocalAppData%\Programs\Transcriber v1.2`
+- ✅ Tworzy skróty na pulpicie i menu Start
+- ✅ **Wszystko automatycznie, jedna komenda!**
 
-**Jeśli pojawi się błąd `.NET SDK not found`:**
-1. Pobierz i zainstaluj: https://dotnet.microsoft.com/download/dotnet/8.0
-2. Zamknij i otwórz CMD ponownie
-3. Uruchom skrypt jeszcze raz
+**Wymagania:**
+- Windows 10/11
+- .NET SDK 8.0+ (pobierz: https://dotnet.microsoft.com/download/dotnet/8.0)
 
 Domyślna ścieżka instalacji:
 - `%LocalAppData%\Programs\Transcriber v1.2`
