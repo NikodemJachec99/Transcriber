@@ -98,8 +98,8 @@ if exist "%INSTALL_DIR%" (
 
 echo [*] Kopiuję pliki do: %INSTALL_DIR%
 mkdir "%INSTALL_DIR%" >nul 2>&1
-xcopy /E /Y /Q "build\publish\*" "%INSTALL_DIR%\"
-if errorlevel 1 (
+robocopy "build\publish" "%INSTALL_DIR%" /E /Y /NFL /NDL /NJH /NJS /nc /ns /np >nul 2>&1
+if errorlevel 8 (
     color 0C
     echo ERROR: Błąd przy kopiowaniu plików!
     pause
