@@ -64,7 +64,7 @@ else {
     $shortcut.Save()
     Write-Host "[OK] Desktop shortcut created" -ForegroundColor Green
 
-    $startMenuPath = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Transcriber"
+    $startMenuPath = "$env:AppData\Microsoft\Windows\Start Menu\Programs\Transcriber"
     New-Item -ItemType Directory -Path $startMenuPath -Force -ErrorAction SilentlyContinue | Out-Null
     $startMenuShortcut = Join-Path $startMenuPath "Transcriber.lnk"
     $shortcut = $shell.CreateShortCut($startMenuShortcut)
