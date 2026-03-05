@@ -369,8 +369,10 @@ public partial class MainWindow : Window
                 SessionNameTextBox.Text,
                 GetSelectedLanguage(),
                 ApplyWidgetSessionName,
-                ApplyWidgetLanguage);
+                ApplyWidgetLanguage,
+                RestoreMainPanelFromWidget);
             _miniWidget.Show();
+            WindowState = WindowState.Minimized;
         }
         else
         {
@@ -392,6 +394,19 @@ public partial class MainWindow : Window
         {
             SelectLanguage(languageCode);
             _settings.Language = languageCode;
+        });
+    }
+
+    private void RestoreMainPanelFromWidget()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            WindowState = WindowState.Normal;
+            Show();
+            Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
         });
     }
 

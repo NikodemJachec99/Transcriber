@@ -14,6 +14,7 @@ public partial class MiniWidget : Window
     private readonly AppSettings _settings;
     private readonly Action<string> _setSessionName;
     private readonly Action<string> _setLanguage;
+    private readonly Action _restoreMainPanel;
 
     public MiniWidget(
         ITranscriptionSessionService sessionService,
@@ -21,12 +22,14 @@ public partial class MiniWidget : Window
         string sessionName,
         string languageCode,
         Action<string> setSessionName,
-        Action<string> setLanguage)
+        Action<string> setLanguage,
+        Action restoreMainPanel)
     {
         _sessionService = sessionService;
         _settings = settings;
         _setSessionName = setSessionName;
         _setLanguage = setLanguage;
+        _restoreMainPanel = restoreMainPanel;
 
         InitializeComponent();
 
@@ -51,6 +54,13 @@ public partial class MiniWidget : Window
     private void WidgetSurface_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        // Nie przechwytuj drag na kontrolkach interaktywnych.
+        if (e.OriginalSource is DependencyObject source &&
+            FindInteractiveParent(source) is not null)
         {
             return;
         }
@@ -125,12 +135,29 @@ public partial class MiniWidget : Window
         _setLanguage(GetSelectedLanguageCode());
     }
 
-    private void CloseButton_OnClick(object sender, RoutedEventArgs e)
+    private void ReturnToPanelButton_OnClick(object sender, RoutedEventArgs e)
     {
         _setSessionName(SessionNameTextBox.Text.Trim());
         _setLanguage(GetSelectedLanguageCode());
         SaveBounds();
+        _restoreMainPanel();
         Hide();
+    }
+
+    private static DependencyObject? FindInteractiveParent(DependencyObject source)
+    {
+        var current = source;
+        while (current is not null)
+        {
+            if (current is Button || current is TextBox || current is ComboBox || current is ComboBoxItem)
+            {
+                return current;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     private string GetSelectedLanguageCode()

@@ -36,16 +36,16 @@
                        VerticalAlignment="Center" />
 
             <Button Grid.Column="1"
-                    x:Name="CloseButton"
+                    x:Name="ReturnToPanelButton"
                     Padding="6,2"
                     Height="24"
                     HorizontalAlignment="Right"
-                    Content="Ukryj"
+                    Content="Pełny panel"
                     Background="#334155"
                     Foreground="#E5E7EB"
                     FontSize="11"
                     FontWeight="SemiBold"
-                    Click="CloseButton_OnClick"
+                    Click="ReturnToPanelButton_OnClick"
                     Cursor="Hand" />
 
             <Grid Grid.Row="1" Margin="0,8,0,0">
@@ -74,6 +74,12 @@
                           BorderBrush="#3B82F6"
                           Foreground="#E5E7EB"
                           SelectionChanged="LanguageComboBox_OnSelectionChanged">
+                    <ComboBox.Resources>
+                        <Style TargetType="ComboBoxItem">
+                            <Setter Property="Foreground" Value="#111827" />
+                            <Setter Property="Background" Value="#FFFFFF" />
+                        </Style>
+                    </ComboBox.Resources>
                     <ComboBoxItem Content="Auto" Tag="auto" />
                     <ComboBoxItem Content="Polish" Tag="pl" />
                     <ComboBoxItem Content="English" Tag="en" />
