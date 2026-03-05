@@ -33,6 +33,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "[*] Compiling..." -ForegroundColor White
 dotnet publish -c Release -o "build\publish" `
+    -r win-x64 --self-contained false `
     src/AlwaysOnTopTranscriber.App/AlwaysOnTopTranscriber.App.csproj
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Build failed!" -ForegroundColor Red
