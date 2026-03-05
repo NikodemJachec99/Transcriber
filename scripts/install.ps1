@@ -26,14 +26,14 @@ dotnet workload install maui-windows --skip-manifest-update 2>&1 | Out-Null
 Write-Host "[OK] MAUI workload installed" -ForegroundColor Green
 Write-Host "`n[3/4] Building application..." -ForegroundColor Cyan
 Write-Host "[*] Restoring dependencies..." -ForegroundColor White
-dotnet restore AlwaysOnTopTranscriber.sln 2>&1 | Out-Null
+dotnet restore AlwaysOnTopTranscriber.sln
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Restore failed!" -ForegroundColor Red
     exit 1
 }
 Write-Host "[*] Compiling..." -ForegroundColor White
 dotnet publish -c Release -o "build\publish" `
-    src/AlwaysOnTopTranscriber.App/AlwaysOnTopTranscriber.App.csproj 2>&1 | Out-Null
+    src/AlwaysOnTopTranscriber.App/AlwaysOnTopTranscriber.App.csproj
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Build failed!" -ForegroundColor Red
     exit 1
