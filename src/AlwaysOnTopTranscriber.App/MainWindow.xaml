@@ -278,7 +278,7 @@
                                         </TextBlock>
                                         <TextBlock Grid.Column="1" x:Name="ChunkLengthValueTextBlock" Text="10s" TextAlignment="Right" Foreground="#4B5563" />
                                     </Grid>
-                                    <Slider x:Name="ChunkLengthSlider" Margin="0,8,0,0" Minimum="10" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Height="20" />
+                                    <Slider x:Name="ChunkLengthSlider" Margin="0,8,0,0" Minimum="3" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Height="20" />
                                 </StackPanel>
 
                                 <!-- Audio Buffer Slider -->
