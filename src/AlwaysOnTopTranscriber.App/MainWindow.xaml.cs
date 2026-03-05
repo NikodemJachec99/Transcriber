@@ -363,10 +363,11 @@ public partial class MainWindow : Window
     {
         if (_miniWidget == null || !_miniWidget.IsVisible)
         {
-            _miniWidget = new MiniWidget(_sessionService, _settings)
+            _miniWidget = new MiniWidget(_sessionService, _settings);
+            if (!string.IsNullOrWhiteSpace(SessionNameTextBox.Text))
             {
-                SessionNameTextBlock = { Text = SessionNameTextBox.Text }
-            };
+                _miniWidget.SessionNameTextBlock.Text = SessionNameTextBox.Text;
+            }
             _miniWidget.Show();
         }
         else
