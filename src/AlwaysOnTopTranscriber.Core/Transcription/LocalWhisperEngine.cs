@@ -321,7 +321,7 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "powershell.exe",
+                    FileName = @"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
                     Arguments = "-NoProfile -Command \"Get-WmiObject Win32_VideoController | Select-Object -ExpandProperty Name\"",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
