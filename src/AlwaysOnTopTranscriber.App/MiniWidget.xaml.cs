@@ -37,7 +37,7 @@ public partial class MiniWidget : Window
         UpdateStatusIndicator();
     }
 
-    private void OnRecordingStateChanged(bool isRecording)
+    private void OnRecordingStateChanged(object sender, bool isRecording)
     {
         Dispatcher.Invoke(() =>
         {
@@ -49,15 +49,15 @@ public partial class MiniWidget : Window
         });
     }
 
-    private void OnLiveTranscriptUpdated(LiveTranscriptUpdate update)
+    private void OnLiveTranscriptUpdated(object sender, LiveTranscriptUpdate update)
     {
         Dispatcher.Invoke(() =>
         {
-            ElapsedTimeTextBlock.Text = update.ElapsedTime.ToString(@"hh\:mm\:ss");
+            ElapsedTimeTextBlock.Text = update.Elapsed.ToString(@"hh\:mm\:ss");
         });
     }
 
-    private void OnAudioLevelChanged(float level)
+    private void OnAudioLevelChanged(object sender, float level)
     {
         Dispatcher.Invoke(() =>
         {
