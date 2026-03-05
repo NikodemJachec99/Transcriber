@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using AlwaysOnTopTranscriber.Core.Models;
 using AlwaysOnTopTranscriber.Core.Sessions;
 
@@ -10,46 +12,67 @@ public partial class MiniWidget : Window
 {
     private readonly ITranscriptionSessionService _sessionService;
     private readonly AppSettings _settings;
-    private Point _dragStartPoint;
-    private bool _isDragging;
+    private readonly Action<string> _setSessionName;
+    private readonly Action<string> _setLanguage;
 
-    public MiniWidget(ITranscriptionSessionService sessionService, AppSettings settings)
+    public MiniWidget(
+        ITranscriptionSessionService sessionService,
+        AppSettings settings,
+        string sessionName,
+        string languageCode,
+        Action<string> setSessionName,
+        Action<string> setLanguage)
     {
         _sessionService = sessionService;
         _settings = settings;
+        _setSessionName = setSessionName;
+        _setLanguage = setLanguage;
 
         InitializeComponent();
 
-        // Apply saved bounds and opacity
         Left = _settings.MiniWidgetBounds.Left;
         Top = _settings.MiniWidgetBounds.Top;
-        Width = _settings.MiniWidgetBounds.Width;
-        Height = _settings.MiniWidgetBounds.Height;
-        var opacity = _settings.WidgetOpacityPercent / 100.0;
-        Opacity = opacity;
+        Width = Math.Clamp(_settings.MiniWidgetBounds.Width, 320, 420);
+        Height = Math.Clamp(_settings.MiniWidgetBounds.Height, 150, 220);
+        Opacity = Math.Clamp(_settings.WidgetOpacityPercent / 100.0, 0.75, 1.0);
 
-        // Subscribe to session events
+        SessionNameTextBox.Text = string.IsNullOrWhiteSpace(sessionName)
+            ? $"Sesja_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}"
+            : sessionName;
+        SelectLanguage(languageCode);
+
         _sessionService.RecordingStateChanged += OnRecordingStateChanged;
         _sessionService.LiveTranscriptUpdated += OnLiveTranscriptUpdated;
         _sessionService.AudioLevelChanged += OnAudioLevelChanged;
 
-        // Update initial state
         UpdateStatusIndicator();
     }
 
-    private void OnRecordingStateChanged(object sender, bool isRecording)
+    private void WidgetSurface_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            return;
+        }
+
+        // Płynniejsze przeciąganie niż ręczne liczenie delta w OnMouseMove.
+        DragMove();
+        SaveBounds();
+    }
+
+    private void OnRecordingStateChanged(object? sender, bool isRecording)
     {
         Dispatcher.Invoke(() =>
         {
             StartStopButton.Content = isRecording ? "Stop" : "Start";
             StartStopButton.Background = isRecording
-                ? System.Windows.Media.Brushes.Red
-                : System.Windows.Media.Brushes.Green;
+                ? Brushes.IndianRed
+                : Brushes.MediumSeaGreen;
             UpdateStatusIndicator();
         });
     }
 
-    private void OnLiveTranscriptUpdated(object sender, LiveTranscriptUpdate update)
+    private void OnLiveTranscriptUpdated(object? sender, LiveTranscriptUpdate update)
     {
         Dispatcher.Invoke(() =>
         {
@@ -57,7 +80,7 @@ public partial class MiniWidget : Window
         });
     }
 
-    private void OnAudioLevelChanged(object sender, float level)
+    private void OnAudioLevelChanged(object? sender, float level)
     {
         Dispatcher.Invoke(() =>
         {
@@ -67,26 +90,29 @@ public partial class MiniWidget : Window
 
     private void UpdateStatusIndicator()
     {
-        var state = _sessionService.IsRecording ? "● Recording" : "● Ready";
-        var color = _sessionService.IsRecording ? "#EF4444" : "#9CA3AF";
-        StatusIndicatorTextBlock.Text = state;
-        StatusIndicatorTextBlock.Foreground = new System.Windows.Media.SolidColorBrush(
-            (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(color));
+        var isRecording = _sessionService.IsRecording;
+        StatusIndicatorTextBlock.Text = isRecording ? "Recording" : "Ready";
+        StatusIndicatorTextBlock.Foreground = isRecording ? Brushes.OrangeRed : Brushes.LightGray;
     }
 
     private async void StartStopButton_OnClick(object sender, RoutedEventArgs e)
     {
         try
         {
+            var sessionName = string.IsNullOrWhiteSpace(SessionNameTextBox.Text)
+                ? $"Sesja_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}"
+                : SessionNameTextBox.Text.Trim();
+
+            _setSessionName(sessionName);
+            _setLanguage(GetSelectedLanguageCode());
+
             if (_sessionService.IsRecording)
             {
                 await _sessionService.StopAsync();
+                return;
             }
-            else
-            {
-                var sessionName = SessionNameTextBlock.Text;
-                await _sessionService.StartAsync(sessionName);
-            }
+
+            await _sessionService.StartAsync(sessionName);
         }
         catch (Exception ex)
         {
@@ -94,44 +120,43 @@ public partial class MiniWidget : Window
         }
     }
 
+    private void LanguageComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _setLanguage(GetSelectedLanguageCode());
+    }
+
     private void CloseButton_OnClick(object sender, RoutedEventArgs e)
     {
+        _setSessionName(SessionNameTextBox.Text.Trim());
+        _setLanguage(GetSelectedLanguageCode());
         SaveBounds();
         Hide();
     }
 
-    private void DragHandle_OnMouseDown(object sender, MouseButtonEventArgs e)
+    private string GetSelectedLanguageCode()
     {
-        if (e.LeftButton == MouseButtonState.Pressed)
+        if (LanguageComboBox.SelectedItem is ComboBoxItem item && item.Tag is not null)
         {
-            _isDragging = true;
-            _dragStartPoint = e.GetPosition(null);
-            ((UIElement)sender).CaptureMouse();
+            return item.Tag.ToString() ?? "auto";
         }
+
+        return "auto";
     }
 
-    protected override void OnMouseMove(MouseEventArgs e)
+    private void SelectLanguage(string? languageCode)
     {
-        base.OnMouseMove(e);
-
-        if (_isDragging)
+        var normalized = string.IsNullOrWhiteSpace(languageCode) ? "auto" : languageCode.Trim().ToLowerInvariant();
+        foreach (var item in LanguageComboBox.Items)
         {
-            Point currentPoint = e.GetPosition(null);
-            Left += currentPoint.X - _dragStartPoint.X;
-            Top += currentPoint.Y - _dragStartPoint.Y;
-            _dragStartPoint = currentPoint;
+            if (item is ComboBoxItem comboItem &&
+                string.Equals(comboItem.Tag?.ToString(), normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                LanguageComboBox.SelectedItem = comboItem;
+                return;
+            }
         }
-    }
 
-    protected override void OnMouseUp(MouseButtonEventArgs e)
-    {
-        base.OnMouseUp(e);
-        if (_isDragging)
-        {
-            _isDragging = false;
-            ReleaseMouseCapture();
-            SaveBounds();
-        }
+        LanguageComboBox.SelectedIndex = 0;
     }
 
     private void SaveBounds()

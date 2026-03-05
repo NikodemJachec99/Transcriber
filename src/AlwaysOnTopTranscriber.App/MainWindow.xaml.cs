@@ -363,17 +363,36 @@ public partial class MainWindow : Window
     {
         if (_miniWidget == null || !_miniWidget.IsVisible)
         {
-            _miniWidget = new MiniWidget(_sessionService, _settings);
-            if (!string.IsNullOrWhiteSpace(SessionNameTextBox.Text))
-            {
-                _miniWidget.SessionNameTextBlock.Text = SessionNameTextBox.Text;
-            }
+            _miniWidget = new MiniWidget(
+                _sessionService,
+                _settings,
+                SessionNameTextBox.Text,
+                GetSelectedLanguage(),
+                ApplyWidgetSessionName,
+                ApplyWidgetLanguage);
             _miniWidget.Show();
         }
         else
         {
             _miniWidget.Activate();
         }
+    }
+
+    private void ApplyWidgetSessionName(string sessionName)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            SessionNameTextBox.Text = sessionName;
+        });
+    }
+
+    private void ApplyWidgetLanguage(string languageCode)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            SelectLanguage(languageCode);
+            _settings.Language = languageCode;
+        });
     }
 
     private void OpenDataFolderButton_OnClick(object sender, RoutedEventArgs e)
