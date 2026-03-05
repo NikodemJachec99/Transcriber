@@ -11,9 +11,8 @@
         Height="120"
         Left="80"
         Top="80">
-    <Grid Background="#1F2937" CornerRadius="12" Margin="0" OpacityMask="White">
-        <Border CornerRadius="12" Background="#1F2937" BorderBrush="#374151" BorderThickness="1" Opacity="0.92">
-            <Grid Margin="12">
+    <Border CornerRadius="12" Background="#1F2937" BorderBrush="#374151" BorderThickness="1" Opacity="0.92">
+        <Grid Margin="12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -93,8 +92,7 @@
                         FontWeight="SemiBold"
                         Click="StartStopButton_OnClick"
                         Cursor="Hand" />
-            </Grid>
-        </Border>
+        </Grid>
 
         <!-- Drag Handle -->
         <TextBlock Text="≡"
@@ -105,5 +103,6 @@
                    Margin="3,2,0,0"
                    Cursor="Move"
                    MouseDown="DragHandle_OnMouseDown" />
-    </Grid>
+    </Border>
+    </Border>
 </Window>
