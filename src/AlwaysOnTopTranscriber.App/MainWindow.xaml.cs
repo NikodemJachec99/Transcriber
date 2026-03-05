@@ -571,7 +571,6 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             FooterStatusTextBlock.Text = $"Błąd transkrypcji: {ex.Message}";
-            _logger.LogError(ex, "Błąd przy transkrypcji ręcznej");
         }
         finally
         {
