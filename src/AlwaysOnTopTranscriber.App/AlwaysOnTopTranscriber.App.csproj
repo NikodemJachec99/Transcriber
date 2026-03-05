@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AlwaysOnTopTranscriber.Core\AlwaysOnTopTranscriber.Core.csproj" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
-    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.0" />
   </ItemGroup>
 </Project>
