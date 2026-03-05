@@ -46,23 +46,16 @@ color 0F
 
 REM Check for MAUI workload
 echo.
-echo [2/4] Sprawdzam MAUI workload...
-dotnet workload list 2>nul | findstr /i "maui-windows" >nul
+echo [2/4] Sprawdzam/instaluję MAUI workload...
+echo [*] Instaluję MAUI workload (może to chwilę potrwać)...
+dotnet workload install maui-windows --skip-manifest-update
 if errorlevel 1 (
-    echo [!] Instaluję MAUI workload (może to chwilę potrwać)...
-    dotnet workload install maui-windows --skip-manifest-update
-    if errorlevel 1 (
-        color 0E
-        echo [WARNING] Instalacja MAUI mogła się nie powieść, próbuję dalej...
-        color 0F
-    ) else (
-        color 0A
-        echo [OK] MAUI workload zainstalowany
-        color 0F
-    )
+    color 0E
+    echo [WARNING] Instalacja MAUI mogła się nie powieść, próbuję dalej...
+    color 0F
 ) else (
     color 0A
-    echo [OK] MAUI workload już zainstalowany
+    echo [OK] MAUI workload zainstalowany
     color 0F
 )
 
