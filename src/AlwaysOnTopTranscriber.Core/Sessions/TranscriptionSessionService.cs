@@ -846,13 +846,17 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
                 Name = _sessionName,
                 StartTimeUtc = _sessionStartUtc,
                 EndTimeUtc = endUtc,
-                DurationSeconds = (long)(endUtc - _sessionStartUtc).TotalSeconds,
-                SegmentCount = segments.Count,
-                TranscriptFilePath = files.FirstOrDefault(f => f.EndsWith(".md")),
-                CreatedAtUtc = DateTimeOffset.UtcNow
+                Duration = endUtc - _sessionStartUtc,
+                MarkdownPath = files.MarkdownPath,
+                JsonPath = files.JsonPath,
+                TextPath = files.TextPath,
+                TranscriptText = transcript,
+                EngineType = _engineType,
+                ModelName = _modelName,
+                WordCount = CountWords(transcript)
             };
 
-            await _sessionRepository.SaveAsync(session, CancellationToken.None).ConfigureAwait(false);
+            session.Id = await _sessionRepository.AddSessionAsync(session, CancellationToken.None).ConfigureAwait(false);
             SessionSaved?.Invoke(this, session);
 
             CurrentState = SessionState.Completed;
