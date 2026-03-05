@@ -123,4 +123,4 @@ Write-Host "  • W menu Start (Transcriber)" -ForegroundColor White
 Write-Host "  • W folderze: $installDir" -ForegroundColor White
 
 Write-Host "`nDane aplikacji: $env:AppData\Transcriber\" -ForegroundColor Cyan
-Write-Host "`nUruchom aplikację i pobierz model do transkrypcji!`n" -ForegroundColor Green
+Write-Host "`nRun the app and download a model for transcription!`n" -ForegroundColor Green
