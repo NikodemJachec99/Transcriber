@@ -52,6 +52,18 @@ public partial class MainWindow : Window
         SelectLanguage(_settings.Language);
         EnableLiveTranscriptCheckBox.IsChecked = _settings.EnableLiveTranscript;
 
+        // Initialize advanced settings
+        ChunkLengthSlider.Value = _settings.ChunkLengthSeconds;
+        ChunkLengthValueTextBlock.Text = $"{_settings.ChunkLengthSeconds}s";
+        AudioBufferSlider.Value = _settings.MaxBufferedAudioFrames;
+        AudioBufferValueTextBlock.Text = _settings.MaxBufferedAudioFrames.ToString();
+
+        // Subscribe to slider changes for real-time value display
+        ChunkLengthSlider.ValueChanged += (s, e) =>
+            ChunkLengthValueTextBlock.Text = $"{(int)ChunkLengthSlider.Value}s";
+        AudioBufferSlider.ValueChanged += (s, e) =>
+            AudioBufferValueTextBlock.Text = ((int)AudioBufferSlider.Value).ToString();
+
         _sessionService.RecordingStateChanged += OnRecordingStateChanged;
         _sessionService.LiveTranscriptUpdated += OnLiveTranscriptUpdated;
         _sessionService.WarningRaised += OnWarningRaised;
@@ -129,6 +141,8 @@ public partial class MainWindow : Window
             ? null
             : CustomModelPathTextBox.Text.Trim();
         _settings.EnableLiveTranscript = EnableLiveTranscriptCheckBox.IsChecked ?? true;
+        _settings.ChunkLengthSeconds = (int)ChunkLengthSlider.Value;
+        _settings.MaxBufferedAudioFrames = (int)AudioBufferSlider.Value;
 
         await _settingsService.SaveAsync(_settings, CancellationToken.None);
         FooterStatusTextBlock.Text = "Ustawienia zapisane.";
@@ -186,6 +200,16 @@ public partial class MainWindow : Window
         {
             FooterStatusTextBlock.Text = ex.Message;
         }
+    }
+
+    private void ResetAdvancedSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        // Reset to defaults from AppSettings class
+        ChunkLengthSlider.Value = 10; // Default from AppSettings
+        AudioBufferSlider.Value = 2048; // Default from AppSettings
+        ChunkLengthValueTextBlock.Text = "10s";
+        AudioBufferValueTextBlock.Text = "2048";
+        FooterStatusTextBlock.Text = "Ustawienia zaawansowane przywrócone do wartości domyślnych.";
     }
 
     private async void DownloadModelButton_OnClick(object sender, RoutedEventArgs e)

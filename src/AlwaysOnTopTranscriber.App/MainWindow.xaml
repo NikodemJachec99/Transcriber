@@ -148,52 +148,108 @@
             </TabItem>
 
             <TabItem Header="Ustawienia">
-                <Grid Margin="14">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <TextBlock Text="Model Whisper" FontWeight="SemiBold" />
-                    <Grid Grid.Row="1" Margin="0,6,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="160" />
-                            <ColumnDefinition Width="120" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="ModelComboBox" Height="34" DisplayMemberPath="Name" SelectedValuePath="Name" />
-                        <Button Grid.Column="1" x:Name="RefreshModelsButton" Margin="10,0,0,0" Content="Odśwież" Click="RefreshModelsButton_OnClick" />
-                        <Button Grid.Column="2" x:Name="DownloadModelButton" Margin="10,0,0,0" Content="Pobierz model" Click="DownloadModelButton_OnClick" />
+                        <!-- Model Selection Section -->
+                        <TextBlock Text="Model Whisper" FontWeight="SemiBold" />
+                        <Grid Grid.Row="1" Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="ModelComboBox" Height="34" DisplayMemberPath="Name" SelectedValuePath="Name" />
+                            <Button Grid.Column="1" x:Name="RefreshModelsButton" Margin="10,0,0,0" Content="Odśwież" Click="RefreshModelsButton_OnClick" />
+                            <Button Grid.Column="2" x:Name="DownloadModelButton" Margin="10,0,0,0" Content="Pobierz model" Click="DownloadModelButton_OnClick" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Text="Własny plik modelu (.bin)" Margin="0,12,0,0" FontWeight="SemiBold" />
+                        <Grid Grid.Row="3" Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="120" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CustomModelPathTextBox" Height="34" />
+                            <Button Grid.Column="1" Margin="10,0,0,0" Content="Wybierz..." Click="BrowseModelButton_OnClick" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="4" x:Name="ModelStatusTextBlock" Margin="0,12,0,0" Foreground="#1F2937" />
+                        <ProgressBar Grid.Row="5" x:Name="DownloadProgressBar" Margin="0,6,0,0" Height="16" Minimum="0" Maximum="100" />
+
+                        <!-- Live Transcript Option -->
+                        <CheckBox Grid.Row="6" x:Name="EnableLiveTranscriptCheckBox" Margin="0,12,0,0" Content="Włącz live transkrypcję (może zużywać więcej zasobów)" VerticalAlignment="Top" />
+
+                        <!-- Advanced Settings Section -->
+                        <Border Grid.Row="7" Margin="0,24,0,0" Padding="12" CornerRadius="8" Background="#F3F4F6" BorderThickness="1" BorderBrush="#D1D5DB">
+                            <StackPanel>
+                                <TextBlock Text="Zaawansowane ustawienia wydajności" FontWeight="SemiBold" Foreground="#1F2937" />
+
+                                <!-- Chunk Length Slider -->
+                                <StackPanel Margin="0,12,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="80" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Długość chunka (sekundy)" VerticalAlignment="Center">
+                                            <TextBlock.ToolTip>
+                                                <ToolTip>Jak często wysyłać audio do transkrypcji. Większe wartości = mniej CPU, ale transkrypcja później się zapisuje. Dla 8GB RAM: 15-20s</ToolTip>
+                                            </TextBlock.ToolTip>
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="1" x:Name="ChunkLengthValueTextBlock" Text="10s" TextAlignment="Right" Foreground="#4B5563" />
+                                    </Grid>
+                                    <Slider x:Name="ChunkLengthSlider" Margin="0,8,0,0" Minimum="10" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Height="20" />
+                                </StackPanel>
+
+                                <!-- Audio Buffer Slider -->
+                                <StackPanel Margin="0,12,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="120" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Rozmiar bufora audio (ramki)" VerticalAlignment="Center">
+                                            <TextBlock.ToolTip>
+                                                <ToolTip>Maksymalnie ile ramek audio przechowywać w pamięci. Większe = bardziej stabilne dla słabszych komputerów, ale zużywa więcej RAM. Normalnie: 2048</ToolTip>
+                                            </TextBlock.ToolTip>
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="1" x:Name="AudioBufferValueTextBlock" Text="2048" TextAlignment="Right" Foreground="#4B5563" />
+                                    </Grid>
+                                    <Slider x:Name="AudioBufferSlider" Margin="0,8,0,0" Minimum="256" Maximum="4096" TickFrequency="256" IsSnapToTickEnabled="True" Height="20" />
+                                </StackPanel>
+
+                                <!-- Reset Button -->
+                                <Button x:Name="ResetAdvancedSettingsButton" Margin="0,12,0,0" Padding="8,6" Width="200" HorizontalAlignment="Left" Content="Przywróć ustawienia domyślne" Click="ResetAdvancedSettingsButton_OnClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Save Button -->
+                        <StackPanel Grid.Row="8" Margin="0,20,0,0">
+                            <Button x:Name="SaveSettingsButton"
+                                    Width="180"
+                                    Height="34"
+                                    Content="Zapisz ustawienia"
+                                    Click="SaveSettingsButton_OnClick" />
+                        </StackPanel>
                     </Grid>
-
-                    <TextBlock Grid.Row="2" Text="Własny plik modelu (.bin)" Margin="0,12,0,0" FontWeight="SemiBold" />
-                    <Grid Grid.Row="3" Margin="0,6,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="120" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="CustomModelPathTextBox" Height="34" />
-                        <Button Grid.Column="1" Margin="10,0,0,0" Content="Wybierz..." Click="BrowseModelButton_OnClick" />
-                    </Grid>
-
-                    <TextBlock Grid.Row="4" x:Name="ModelStatusTextBlock" Margin="0,12,0,0" Foreground="#1F2937" />
-                    <ProgressBar Grid.Row="5" x:Name="DownloadProgressBar" Margin="0,6,0,0" Height="16" Minimum="0" Maximum="100" />
-
-                    <CheckBox Grid.Row="6" x:Name="EnableLiveTranscriptCheckBox" Margin="0,12,0,0" Content="Włącz live transkrypcję (może zużywać więcej zasobów)" VerticalAlignment="Top" />
-
-                    <StackPanel Grid.Row="6" Margin="0,44,0,0">
-                        <Button x:Name="SaveSettingsButton"
-                                Width="180"
-                                Height="34"
-                                Content="Zapisz ustawienia"
-                                Click="SaveSettingsButton_OnClick" />
-                    </StackPanel>
-                </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Sesje">
