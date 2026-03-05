@@ -59,13 +59,14 @@ public partial class MainWindow : Window
         GpuProviderPanel.IsEnabled = _settings.TryGpuAcceleration;
 
         // Set GPU provider combobox to current setting
+        // Options: 0=auto, 1=cuda, 2=rocm, 3=cpu
+        // Note: "directml" is no longer supported (packaging issues) - falls back to "auto"
         var gpuProviderIndex = _settings.GpuProvider switch
         {
             "cuda" => 1,
-            "directml" => 2,
-            "rocm" => 3,
-            "cpu" => 4,
-            _ => 0 // default "auto"
+            "rocm" => 2,
+            "cpu" => 3,
+            _ => 0 // default "auto" (also covers legacy "directml" saved in settings)
         };
         GpuProviderComboBox.SelectedIndex = gpuProviderIndex;
 

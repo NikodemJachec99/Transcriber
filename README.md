@@ -1,130 +1,256 @@
 # Transcriber v1.2
 
 Prosta aplikacja desktopowa do transkrypcji audio na Windows.
+Nagrywa dźwięk systemowy (WASAPI Loopback) i transkrybuje go przy użyciu modelu Whisper lokalnie — **bez chmury, bez internetu**.
 
-## Szybki wybór
-1. Chcesz po prostu zainstalować i używać? Skorzystaj z `Instalacja automatyczna (polecana)`.
-2. Chcesz uruchamiać z kodu i samodzielnie budować aplikację? Skorzystaj z `Instalacja ręczna`.
+---
 
-## 1) Jak pobrać projekt
-1. Otwórz PowerShell.
-2. Wejdź do folderu, gdzie chcesz mieć projekt.
-3. Wklej:
+## Spis treści
+1. [Wymagania](#1-wymagania)
+2. [Jak pobrać projekt](#2-jak-pobrać-projekt)
+3. [Instalacja automatyczna](#3-instalacja-automatyczna-polecana)
+4. [Instalacja ręczna](#4-instalacja-ręczna-dla-deweloperów)
+5. [Pierwsze uruchomienie – pobieranie modelu](#5-pierwsze-uruchomienie--pobieranie-modelu)
+6. [Ustawienia GPU / CPU](#6-ustawienia-gpu--cpu)
+7. [Tryb odroczonej transkrypcji](#7-tryb-odroczonej-transkrypcji-deferred)
+8. [Gdzie zapisują się pliki](#8-gdzie-zapisują-się-pliki)
+9. [Ustawienia aplikacji](#9-ustawienia-aplikacji)
+10. [Troubleshooting](#10-troubleshooting)
+
+---
+
+## 1) Wymagania
+
+| Wymaganie | Minimalne | Zalecane |
+|-----------|-----------|----------|
+| System | Windows 10/11 | Windows 11 |
+| RAM | 4 GB | 8 GB+ |
+| .NET SDK | 8.0+ | 8.0+ |
+| GPU (opcjonalnie) | — | NVIDIA RTX/GTX (CUDA) |
+
+Pobierz .NET SDK 8.0: https://dotnet.microsoft.com/download/dotnet/8.0
+
+---
+
+## 2) Jak pobrać projekt
+
+Otwórz **PowerShell** i wklej:
 
 ```powershell
 git clone https://github.com/NikodemJachec99/Transcriber.git
 cd Transcriber
 ```
 
-## 2) Instalacja automatyczna (polecana)
-Ta opcja:
-- buduje aplikację z kodu,
-- instaluje ją lokalnie,
-- tworzy skrót na pulpicie i w menu Start.
+> Jeśli nie masz git: https://git-scm.com/download/win
 
-### Szybki start (jedną komendą):
+---
+
+## 3) Instalacja automatyczna (polecana)
+
+**Jedna komenda — buduje, instaluje, tworzy skróty:**
+
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force; .\scripts\install.ps1
 ```
 
 **Krok po kroku:**
 1. Otwórz **PowerShell** w folderze projektu
-   - Shift + Right Click → Open PowerShell Here
-   - Lub: Start → PowerShell → Enter → `cd C:\Users\...\Transcriber`
-2. Wklej komendę wyżej i naciśnij Enter
+   *(Shift + prawy klik na folderze → "Otwórz okno PowerShell tutaj")*
+2. Wklej komendę powyżej i naciśnij Enter
+3. Poczekaj ~2-5 minut na kompilację
 
 **Co robi skrypt:**
 - ✅ Sprawdza .NET SDK 8.0
-- ✅ Instaluje MAUI workload
-- ✅ Buduje aplikację (Release mode)
+- ✅ Buduje aplikację (Release mode, win-x64)
 - ✅ Instaluje do `%LocalAppData%\Programs\Transcriber v1.2`
-- ✅ Tworzy skróty na pulpicie i menu Start
-- ✅ **Wszystko automatycznie, jedna komenda!**
+- ✅ Tworzy skrót na pulpicie i w menu Start
 
-**Wymagania:**
-- Windows 10/11
-- .NET SDK 8.0+ (pobierz: https://dotnet.microsoft.com/download/dotnet/8.0)
+Po instalacji uruchom **Transcriber** z pulpitu.
 
-Domyślna ścieżka instalacji:
-- `%LocalAppData%\Programs\Transcriber v1.2`
+---
 
-## 3) Instalacja ręczna (dla dewelopera)
-Wymagania:
-1. Windows 10/11
-2. .NET SDK 8.0
-3. MAUI workload
-
-Instalacja zależności:
+## 4) Instalacja ręczna (dla deweloperów)
 
 ```powershell
+# Zainstaluj MAUI workload (jednorazowo)
 dotnet workload install maui-windows --skip-manifest-update
-```
 
-Budowanie i uruchomienie:
-
-```powershell
+# Przywróć paczki i zbuduj
 dotnet restore AlwaysOnTopTranscriber.sln
-dotnet build AlwaysOnTopTranscriber.sln
-dotnet run --project src/AlwaysOnTopTranscriber.Hybrid/AlwaysOnTopTranscriber.Hybrid.csproj
+dotnet build AlwaysOnTopTranscriber.sln -c Release
+
+# Uruchom bezpośrednio
+dotnet run --project src/AlwaysOnTopTranscriber.App/AlwaysOnTopTranscriber.App.csproj
 ```
 
-## 4) Jak pobrać model do transkrypcji
-1. Otwórz aplikację.
-2. Przejdź do `Settings`.
-3. Wybierz model z listy i kliknij pobieranie.
-4. Po pobraniu ustaw model jako aktywny.
+---
 
-Możesz też wskazać własny plik `.bin`.
+## 5) Pierwsze uruchomienie – pobieranie modelu
 
-## 5) Gdzie zapisują się pliki
-Domyślny katalog danych:
-- `%AppData%\Transcriber\`
+**Po uruchomieniu aplikacji musisz pobrać model Whisper.**
+Bez modelu transkrypcja nie działa.
 
-Najważniejsze foldery:
-- `models\` - modele Whisper
-- `transcripts\` - zapisane transkrypcje (`.txt`, `.md`, `.json`)
-- `logs\` - logi aplikacji
+### Jak pobrać model:
+1. Otwórz aplikację
+2. Przejdź do zakładki **Ustawienia**
+3. Wybierz model z listy rozwijanej (np. `tiny` lub `base`)
+4. Kliknij przycisk **"Pobierz model"**
+5. Poczekaj na pobranie (pasek postępu)
+6. Model zostanie zapisany w `%AppData%\Transcriber\models\`
 
-## 6) Stabilność długich nagrań (5h+ na 8 GB RAM)
-- Aplikacja ma limit bufora audio, więc RAM nie rośnie bez końca.
-- Przy przeciążeniu CPU aplikacja pomija nadmiar audio zamiast się wywalać.
-- **Dla długich sesji:**
-  - Wyłącz **Live transkrypcję** w Ustawieniach (oszczędza CPU/RAM)
-  - Ustaw model `tiny` lub `base`
-  - Zwiększ chunk length do `15-20s`
-- Live transkrypcja limituje wyświetlanie do ostatnich 50KB znaków dla wydajności
-- Aplikacja zapisywać się będzie systematycznie, niezależnie od live transkrypcji
+### Który model wybrać?
 
-## 7) Troubleshooting
+| Model | Rozmiar | Szybkość (CPU) | Dokładność | Dla kogo |
+|-------|---------|----------------|------------|----------|
+| `tiny` | ~75 MB | Najszybszy | Podstawowa | Słabe PC (4-6 GB RAM), testy |
+| `base` | ~142 MB | Szybki | Dobra | Standardowe PC (8 GB RAM) |
+| `small` | ~466 MB | Średni | Lepsza | Mocniejsze PC |
+| `medium` | ~1.5 GB | Wolny | Bardzo dobra | PC z GPU (RTX) |
+| `medium-q5` | ~1.0 GB | Wolny | Bardzo dobra | PC z GPU (RTX), skompresowany |
 
-### Problem: Aplikacja zużywa zbyt dużo RAM / spowalnia się
-**Rozwiązanie:**
-1. Wyłącz **Live transkrypcję** w Ustawieniach
-2. Wybierz lżejszy model (np. `tiny` zamiast `base`)
-3. Zwiększ chunk length do `20s` lub `30s`
-4. Zamknij inne aplikacje na komputerze
+**Rekomendacje:**
+- **AMD Vega 8 / słabe PC (6 GB RAM):** `tiny` → najszybszy, najmniej zasobów
+- **Standardowy PC (8 GB RAM, CPU):** `base` lub `small`
+- **NVIDIA RTX (z GPU):** `medium` lub `medium-q5` → GPU przyspiesza znacząco
 
-### Problem: `NU1900` podczas `dotnet restore`
-- To zwykle brak dostępu do feedu NuGet (internet/proxy)
-- To tylko warning, nie blokuje uruchomienia aplikacji
+---
+
+## 6) Ustawienia GPU / CPU
+
+### Co obsługuje GPU acceleration?
+
+| GPU | System | Wsparcie |
+|-----|--------|----------|
+| NVIDIA RTX / GTX | Windows/Linux | ✅ CUDA (szybkie) |
+| AMD Vega 8 / RDNA | Windows | ❌ Brak (używa CPU) |
+| AMD Vega / RDNA | Linux | ✅ ROCm |
+| Intel Arc / UHD | Windows | ❌ Brak (używa CPU) |
+| Apple Silicon | macOS | ✅ CoreML |
+
+### Jak ustawić tryb GPU w aplikacji:
+
+1. Przejdź do **Ustawienia → Zaawansowane ustawienia wydajności**
+2. Zaznacz/odznacz **"Włącz GPU acceleration"**
+3. Wybierz tryb z listy:
+   - **Auto-detect (zalecane)** – aplikacja sama wykryje GPU
+   - **NVIDIA CUDA** – wymuś CUDA (dla RTX/GTX)
+   - **AMD ROCm (Linux)** – dla AMD na Linuksie
+   - **CPU (wyłącz GPU)** – zawsze używaj CPU
+4. Kliknij **"Zapisz ustawienia"**
+
+### Dla AMD Vega 8 / Intel (Windows):
+Jeśli **GPU acceleration jest włączone**, aplikacja automatycznie wykryje brak wsparcia i użyje CPU.
+Jeśli transkrypcja się wysypuje lub działa wolno, ustaw: **"CPU (wyłącz GPU)"** → to jest najbezpieczniejsza opcja.
+
+---
+
+## 7) Tryb odroczonej transkrypcji (Deferred)
+
+Dla słabszych komputerów (mało RAM, wolny CPU) dostępny jest tryb "nagraj teraz, transkrybuj później":
+
+1. **Nagrywaj** – aplikacja zapisuje audio bez transkrypcji (zero obciążenia CPU)
+2. **Zatrzymaj nagrywanie** – pojawi się przycisk **"Transkrybuj teraz"**
+3. **Kliknij "Transkrybuj teraz"** – pełna transkrypcja w tle
+4. Po zakończeniu transkrypt zapisuje się automatycznie
+
+**Zalety:**
+- Brak dropsy audio nawet przy 5+ godzin nagrania
+- Transkrypcja uruchamiana kiedy komputer jest wolny
+- Na AMD Vega 8: brak problemu z zajętością CPU
+
+---
+
+## 8) Gdzie zapisują się pliki
+
+| Folder | Zawartość |
+|--------|-----------|
+| `%AppData%\Transcriber\` | Główny folder danych |
+| `%AppData%\Transcriber\models\` | Pobrane modele Whisper (.bin) |
+| `%AppData%\Transcriber\transcripts\` | Zapisane transkrypcje (.txt, .md, .json) |
+| `%AppData%\Transcriber\logs\` | Logi aplikacji (diagnostyka) |
+| `%AppData%\Transcriber\settings.json` | Ustawienia aplikacji |
+
+---
+
+## 9) Ustawienia aplikacji
+
+| Ustawienie | Domyślnie | Opis |
+|-----------|-----------|------|
+| `EnableLiveTranscript` | OFF | Live transkrypcja w czasie nagrywania. Wyłącz dla oszczędności zasobów. |
+| `EnableDeferredTranscription` | ON | Tryb "nagraj najpierw, transkrybuj później" |
+| `ChunkLengthSeconds` | 10s | Jak często wysyłać audio do Whisper. Dla słabego PC: 15-20s |
+| `MaxBufferedAudioFrames` | 2048 | Bufor audio. Zwiększ jeśli tracisz dźwięk. |
+| `TryGpuAcceleration` | ON | Próbuje użyć GPU. Fallback na CPU jeśli GPU niedostępne. |
+| `GpuProvider` | auto | auto / cuda / rocm / cpu |
+
+### Rekomendowana konfiguracja dla AMD Vega 8 (6 GB RAM):
+```
+Model: tiny
+EnableLiveTranscript: false
+EnableDeferredTranscription: true
+ChunkLengthSeconds: 15
+MaxBufferedAudioFrames: 2048
+TryGpuAcceleration: false  (lub true z "CPU (wyłącz GPU)")
+```
+
+### Rekomendowana konfiguracja dla NVIDIA RTX:
+```
+Model: medium lub medium-q5
+EnableLiveTranscript: true (opcjonalnie)
+EnableDeferredTranscription: false
+ChunkLengthSeconds: 10
+TryGpuAcceleration: true
+GpuProvider: cuda
+```
+
+---
+
+## 10) Troubleshooting
+
+### Problem: Transkrypcja jest bardzo wolna
+- Sprawdź **Ustawienia → GPU acceleration** – czy jest włączone?
+- Sprawdź logi: `%AppData%\Transcriber\logs\` – szukaj linii `[GPU DETECTED ✓]`
+- Użyj lżejszego modelu: `tiny` zamiast `medium`
+- Włącz tryb odroczonej transkrypcji
+
+### Problem: Na Vega 8 GPU acceleration nie działa
+- To normalne! AMD Vega 8 / Intel na Windows nie mają wsparcia w tej wersji.
+- Idź do **Ustawienia → CPU (wyłącz GPU)** → model `tiny` → będzie działać.
+- Transkrypcja `tiny` na CPU to ~2-5 min dla 1h nagrania.
+
+### Problem: Aplikacja zużywa za dużo RAM
+1. Wyłącz **Live transkrypcję**
+2. Wybierz model `tiny`
+3. Zwiększ chunk length do `20-30s`
+4. Włącz tryb odroczonej transkrypcji
+
+### Problem: Audio dropsuje po 15 minutach
+- Włącz **tryb odroczonej transkrypcji** (Deferred mode)
+- To rozdziela nagrywanie od transkrypcji → zero dropsy
+
+### Problem: Brak modelu / transkrypcja nie zaczyna
+1. Idź do **Ustawienia → Pobierz model**
+2. Sprawdź `%AppData%\Transcriber\models\` – czy jest plik `.bin`?
+3. Sprawdź logi w `%AppData%\Transcriber\logs\`
+
+### Problem: Błąd przy instalacji (NU1900 / restore failed)
+- Sprawdź połączenie internetowe
+- Uruchom jako administrator
+- `NU1900` to zwykle tylko warning (nie błąd) – instalacja powinna działać
 
 ### Problem: "Windows App Runtime not found"
-- Uruchom installer - automatycznie pobierze i zainstaluje wymagane zależności
-- Lub pobierz ręcznie: https://aka.ms/windowsappruntimeinstall
+Pobierz: https://aka.ms/windowsappruntimeinstall
 
-### Problem: Transkrypcja się nie zaczyna
-1. Upewnij się, że model jest pobrany (Ustawienia → Model powinien być "pobrany")
-2. Sprawdź logi w: `%AppData%\Transcriber\logs\`
-3. Spróbuj inny model (np. przejdź z `base` na `tiny`)
+---
 
-## 8) Ustawiania aplikacji
-- `EnableLiveTranscript` - **domyślnie OFF** dla oszczędności zasobów
-  - Włącz, jeśli chcesz widzieć transkrypcję na żywo
-  - Wyłącz dla lepszej wydajności na słabszych komputerach
-- `ChunkLengthSeconds` - jak często wysyłać do transkrypcji (10-30s)
-  - Większe wartości = mniej CPU, ale dłuższe opóźnienie
-  - Dla 8GB RAM rekomendujemy 15-20s
-- `MaxBufferedAudioFrames` - limit bufora audio (256-4096)
-  - Domyślnie 2048, zwiększ jeśli traciła dźwięk
-- `TranscriptDisplayMode` - jak wyświetlać transkrypcję
-  - AppendAndCorrect, AppendBelow, AppendAbove
+## Logi i diagnostyka
+
+Logi aplikacji: `%AppData%\Transcriber\logs\app-YYYY-MM-DD.log`
+
+Przydatne wpisy w logach:
+```
+[INF] Detectowano GPU: NVIDIA - będzie używany CUDA      ← GPU wykryty
+[INF] Załadowano model Whisper z GPU acceleration        ← model załadowany z GPU
+[INF] Transcribed 10.0s audio in 3200ms [GPU DETECTED ✓] ← GPU faktycznie używany
+[INF] Deferred transcription enabled                     ← tryb odroczonej transkrypcji
+```
