@@ -15,6 +15,7 @@ public partial class MiniWidget : Window
     private readonly Action<string> _setSessionName;
     private readonly Action<string> _setLanguage;
     private readonly Action _restoreMainPanel;
+    private bool _isBusy;
 
     public MiniWidget(
         ITranscriptionSessionService sessionService,
@@ -45,10 +46,11 @@ public partial class MiniWidget : Window
         SelectLanguage(languageCode);
 
         _sessionService.RecordingStateChanged += OnRecordingStateChanged;
+        _sessionService.SessionStateChanged += OnSessionStateChanged;
         _sessionService.LiveTranscriptUpdated += OnLiveTranscriptUpdated;
         _sessionService.AudioLevelChanged += OnAudioLevelChanged;
 
-        UpdateStatusIndicator();
+        RefreshTransportControls();
     }
 
     private void WidgetSurface_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -72,14 +74,12 @@ public partial class MiniWidget : Window
 
     private void OnRecordingStateChanged(object? sender, bool isRecording)
     {
-        Dispatcher.Invoke(() =>
-        {
-            StartStopButton.Content = isRecording ? "Stop" : "Start";
-            StartStopButton.Background = isRecording
-                ? Brushes.IndianRed
-                : Brushes.MediumSeaGreen;
-            UpdateStatusIndicator();
-        });
+        Dispatcher.Invoke(RefreshTransportControls);
+    }
+
+    private void OnSessionStateChanged(object? sender, SessionState state)
+    {
+        Dispatcher.Invoke(RefreshTransportControls);
     }
 
     private void OnLiveTranscriptUpdated(object? sender, LiveTranscriptUpdate update)
@@ -100,13 +100,36 @@ public partial class MiniWidget : Window
 
     private void UpdateStatusIndicator()
     {
-        var isRecording = _sessionService.IsRecording;
-        StatusIndicatorTextBlock.Text = isRecording ? "Recording" : "Ready";
-        StatusIndicatorTextBlock.Foreground = isRecording ? Brushes.OrangeRed : Brushes.LightGray;
+        var state = _sessionService.CurrentState;
+        StatusIndicatorTextBlock.Text = state switch
+        {
+            SessionState.Recording => "Recording",
+            SessionState.Paused => "Paused",
+            SessionState.Recorded => "Recorded",
+            SessionState.Transcribing => "Transcribing",
+            SessionState.Completed => "Ready",
+            _ => "Ready"
+        };
+        StatusIndicatorTextBlock.Foreground = state switch
+        {
+            SessionState.Recording => Brushes.OrangeRed,
+            SessionState.Paused => Brushes.Gold,
+            SessionState.Recorded => Brushes.DeepSkyBlue,
+            SessionState.Transcribing => Brushes.DeepSkyBlue,
+            _ => Brushes.LightGray
+        };
     }
 
     private async void StartStopButton_OnClick(object sender, RoutedEventArgs e)
     {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        RefreshTransportControls();
+
         try
         {
             var sessionName = string.IsNullOrWhiteSpace(SessionNameTextBox.Text)
@@ -116,7 +139,7 @@ public partial class MiniWidget : Window
             _setSessionName(sessionName);
             _setLanguage(GetSelectedLanguageCode());
 
-            if (_sessionService.IsRecording)
+            if (_sessionService.CurrentState is SessionState.Recording or SessionState.Paused)
             {
                 await _sessionService.StopAsync();
                 return;
@@ -127,6 +150,43 @@ public partial class MiniWidget : Window
         catch (Exception ex)
         {
             MessageBox.Show($"Błąd: {ex.Message}", "Transcriber Widget", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _isBusy = false;
+            RefreshTransportControls();
+        }
+    }
+
+    private async void PauseResumeButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        RefreshTransportControls();
+
+        try
+        {
+            if (_sessionService.CurrentState == SessionState.Recording)
+            {
+                await _sessionService.PauseAsync();
+            }
+            else if (_sessionService.CurrentState == SessionState.Paused)
+            {
+                await _sessionService.ResumeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Błąd: {ex.Message}", "Transcriber Widget", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _isBusy = false;
+            RefreshTransportControls();
         }
     }
 
@@ -202,7 +262,43 @@ public partial class MiniWidget : Window
         base.OnClosing(e);
         SaveBounds();
         _sessionService.RecordingStateChanged -= OnRecordingStateChanged;
+        _sessionService.SessionStateChanged -= OnSessionStateChanged;
         _sessionService.LiveTranscriptUpdated -= OnLiveTranscriptUpdated;
         _sessionService.AudioLevelChanged -= OnAudioLevelChanged;
+    }
+
+    private void RefreshTransportControls()
+    {
+        var state = _sessionService.CurrentState;
+
+        StartStopButton.Content = "Start";
+        StartStopButton.Background = Brushes.MediumSeaGreen;
+        StartStopButton.IsEnabled = !_isBusy;
+
+        PauseResumeButton.Content = "Pauza";
+        PauseResumeButton.Background = Brushes.DarkOrange;
+        PauseResumeButton.IsEnabled = false;
+
+        switch (state)
+        {
+            case SessionState.Recording:
+                StartStopButton.Content = "Stop";
+                StartStopButton.Background = Brushes.IndianRed;
+                PauseResumeButton.IsEnabled = !_isBusy;
+                break;
+            case SessionState.Paused:
+                StartStopButton.Content = "Stop";
+                StartStopButton.Background = Brushes.IndianRed;
+                PauseResumeButton.Content = "Wznów";
+                PauseResumeButton.Background = Brushes.SteelBlue;
+                PauseResumeButton.IsEnabled = !_isBusy;
+                break;
+            case SessionState.Recorded:
+            case SessionState.Transcribing:
+                StartStopButton.IsEnabled = false;
+                break;
+        }
+
+        UpdateStatusIndicator();
     }
 }

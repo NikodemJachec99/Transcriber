@@ -84,7 +84,8 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        if (_sessionService is not null && _sessionService.IsRecording)
+        if (_sessionService is not null &&
+            (_sessionService.CurrentState == SessionState.Recording || _sessionService.CurrentState == SessionState.Paused))
         {
             await _sessionService.StopAsync();
         }

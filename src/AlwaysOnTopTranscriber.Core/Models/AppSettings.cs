@@ -110,7 +110,8 @@ public enum SessionState
 {
     Idle = 0,           // Brak sesji
     Recording = 1,      // Nagrywanie w toku
-    Recorded = 2,       // Nagranie bez transkrypcji (new - for deferred mode)
-    Transcribing = 3,   // Transkrypcja w toku
-    Completed = 4       // Sesja gotowa
+    Paused = 2,         // Nagrywanie wstrzymane
+    Recorded = 3,       // Nagranie bez transkrypcji (new - for deferred mode)
+    Transcribing = 4,   // Transkrypcja w toku
+    Completed = 5       // Sesja gotowa
 }

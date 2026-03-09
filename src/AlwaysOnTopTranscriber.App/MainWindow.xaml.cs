@@ -93,6 +93,7 @@ public partial class MainWindow : Window
         AutoPunctuationQuickToggle.IsChecked = _settings.AutoPunctuation;
 
         _sessionService.RecordingStateChanged += OnRecordingStateChanged;
+        _sessionService.SessionStateChanged += OnSessionStateChanged;
         _sessionService.LiveTranscriptUpdated += OnLiveTranscriptUpdated;
         _sessionService.WarningRaised += OnWarningRaised;
         _sessionService.SessionSaved += OnSessionSaved;
@@ -107,11 +108,13 @@ public partial class MainWindow : Window
         await RefreshSessionsAsync();
         UpdateModelStatus();
         UpdateSettingsPreview();
+        RefreshTransportControls();
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         _sessionService.RecordingStateChanged -= OnRecordingStateChanged;
+        _sessionService.SessionStateChanged -= OnSessionStateChanged;
         _sessionService.LiveTranscriptUpdated -= OnLiveTranscriptUpdated;
         _sessionService.WarningRaised -= OnWarningRaised;
         _sessionService.SessionSaved -= OnSessionSaved;
@@ -196,19 +199,19 @@ public partial class MainWindow : Window
         }
 
         _isBusy = true;
-        StartStopButton.IsEnabled = false;
+        RefreshTransportControls();
 
         try
         {
-            await SaveSettingsAsync();
-
-            if (_sessionService.IsRecording)
+            var currentState = _sessionService.CurrentState;
+            if (currentState is SessionState.Recording or SessionState.Paused)
             {
                 await _sessionService.StopAsync();
                 FooterStatusTextBlock.Text = "Nagrywanie zatrzymane.";
             }
             else
             {
+                await SaveSettingsAsync();
                 var sessionName = string.IsNullOrWhiteSpace(SessionNameTextBox.Text)
                     ? BuildDefaultSessionName()
                     : SessionNameTextBox.Text.Trim();
@@ -224,8 +227,44 @@ public partial class MainWindow : Window
         }
         finally
         {
-            StartStopButton.IsEnabled = true;
             _isBusy = false;
+            RefreshTransportControls();
+        }
+    }
+
+    private async void PauseResumeButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        RefreshTransportControls();
+
+        try
+        {
+            if (_sessionService.CurrentState == SessionState.Recording)
+            {
+                await _sessionService.PauseAsync();
+                FooterStatusTextBlock.Text = "Nagrywanie wstrzymane.";
+            }
+            else if (_sessionService.CurrentState == SessionState.Paused)
+            {
+                await _sessionService.ResumeAsync();
+                FooterStatusTextBlock.Text = "Nagrywanie wznowione.";
+            }
+        }
+        catch (Exception ex)
+        {
+            FooterStatusTextBlock.Text = ex.Message;
+            WarningTextBlock.Text = ex.Message;
+            WarningTextBlock.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _isBusy = false;
+            RefreshTransportControls();
         }
     }
 
@@ -496,18 +535,19 @@ public partial class MainWindow : Window
 
     private void OnRecordingStateChanged(object? sender, bool isRecording)
     {
+        Dispatcher.Invoke(RefreshTransportControls);
+    }
+
+    private void OnSessionStateChanged(object? sender, SessionState state)
+    {
         Dispatcher.Invoke(() =>
         {
-            StartStopButton.Content = isRecording ? "Stop" : "Start";
-            StartStopButton.Background = isRecording
-                ? System.Windows.Media.Brushes.IndianRed
-                : System.Windows.Media.Brushes.MediumSeaGreen;
-
-            StatusTextBlock.Text = isRecording ? "Nagrywanie..." : "Ready";
-            if (!isRecording)
+            if (state == SessionState.Completed)
             {
                 SessionNameTextBox.Text = BuildDefaultSessionName();
             }
+
+            RefreshTransportControls();
         });
     }
 
@@ -621,6 +661,50 @@ public partial class MainWindow : Window
         finally
         {
             TranscribeNowButton.IsEnabled = true;
+        }
+    }
+
+    private void RefreshTransportControls()
+    {
+        var state = _sessionService.CurrentState;
+
+        StartStopButton.Background = Brushes.MediumSeaGreen;
+        StartStopButton.Content = "Start";
+        StartStopButton.IsEnabled = !_isBusy;
+
+        PauseResumeButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F59E0B"));
+        PauseResumeButton.Content = "Pauza";
+        PauseResumeButton.IsEnabled = false;
+
+        StatusTextBlock.Text = state switch
+        {
+            SessionState.Recording => "Nagrywanie...",
+            SessionState.Paused => "Wstrzymane",
+            SessionState.Recorded => "Nagranie gotowe",
+            SessionState.Transcribing => "Transkrypcja...",
+            SessionState.Completed => "Gotowe",
+            _ => "Ready"
+        };
+
+        switch (state)
+        {
+            case SessionState.Recording:
+                StartStopButton.Content = "Stop";
+                StartStopButton.Background = Brushes.IndianRed;
+                PauseResumeButton.IsEnabled = !_isBusy;
+                break;
+            case SessionState.Paused:
+                StartStopButton.Content = "Stop";
+                StartStopButton.Background = Brushes.IndianRed;
+                PauseResumeButton.Content = "Wznów";
+                PauseResumeButton.Background = Brushes.SteelBlue;
+                PauseResumeButton.IsEnabled = !_isBusy;
+                break;
+            case SessionState.Recorded:
+            case SessionState.Transcribing:
+                StartStopButton.IsEnabled = false;
+                PauseResumeButton.IsEnabled = false;
+                break;
         }
     }
 

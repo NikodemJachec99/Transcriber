@@ -8,6 +8,8 @@ public interface ITranscriptionSessionService
 {
     event EventHandler<bool>? RecordingStateChanged;
 
+    event EventHandler<SessionState>? SessionStateChanged;
+
     event EventHandler<LiveTranscriptUpdate>? LiveTranscriptUpdated;
 
     event EventHandler<string>? WarningRaised;
@@ -21,6 +23,10 @@ public interface ITranscriptionSessionService
     SessionState CurrentState { get; }
 
     Task StartAsync(string sessionName);
+
+    Task PauseAsync();
+
+    Task ResumeAsync();
 
     Task StopAsync();
 

@@ -90,6 +90,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="84" />
                     <ColumnDefinition Width="88" />
+                    <ColumnDefinition Width="88" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -103,7 +104,20 @@
                         Click="StartStopButton_OnClick"
                         Cursor="Hand" />
 
-                <TextBlock Grid.Column="1"
+                <Button Grid.Column="1"
+                        x:Name="PauseResumeButton"
+                        Content="Pauza"
+                        Height="32"
+                        Margin="8,0,0,0"
+                        Background="#F59E0B"
+                        Foreground="White"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        IsEnabled="False"
+                        Click="PauseResumeButton_OnClick"
+                        Cursor="Hand" />
+
+                <TextBlock Grid.Column="2"
                            x:Name="ElapsedTimeTextBlock"
                            Text="00:00:00"
                            Foreground="#E5E7EB"
@@ -112,7 +126,7 @@
                            VerticalAlignment="Center"
                            HorizontalAlignment="Center" />
 
-                <TextBlock Grid.Column="2"
+                <TextBlock Grid.Column="3"
                            x:Name="StatusIndicatorTextBlock"
                            Text="Ready"
                            Foreground="#9CA3AF"
