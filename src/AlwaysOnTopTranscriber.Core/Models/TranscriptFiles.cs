@@ -7,4 +7,6 @@ public sealed class TranscriptFiles
     public required string JsonPath { get; init; }
 
     public required string TextPath { get; init; }
+
+    public string AudioPath { get; init; } = string.Empty;
 }

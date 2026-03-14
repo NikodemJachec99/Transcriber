@@ -20,6 +20,8 @@ public sealed class SessionEntity
 
     public required string TextPath { get; init; }
 
+    public string AudioPath { get; init; } = string.Empty;
+
     public required string TranscriptText { get; init; }
 
     public required string EngineType { get; init; }

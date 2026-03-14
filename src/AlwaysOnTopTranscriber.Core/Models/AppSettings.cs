@@ -66,20 +66,6 @@ public sealed class AppSettings
     /// </summary>
     public bool EnableDeferredTranscription { get; set; } = true;
 
-    /// <summary>
-    /// Spróbuj użyć GPU acceleration dla Whisper.net.
-    /// Wymaga zainstalowanych odpowiednich pakietów runtime (Cuda, OpenVino).
-    /// Fallback do CPU jeśli GPU niedostępna.
-    /// </summary>
-    public bool TryGpuAcceleration { get; set; } = true;
-
-    /// <summary>
-    /// Dostawca GPU: "auto" (auto-detect), "cuda" (NVIDIA RTX/GTX),
-    /// "rocm" (AMD Linux), "cpu" (force CPU).
-    /// Note: Whisper.net.Runtime.Cuda jest wymagany dla CUDA.
-    /// TODO: Add OpenVINO for AMD Vega/Intel Arc support (v1.9.0 packaging issues).
-    /// </summary>
-    public string GpuProvider { get; set; } = "auto";
 }
 
 public sealed class WidgetBounds

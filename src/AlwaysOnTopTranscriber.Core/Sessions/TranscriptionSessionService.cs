@@ -51,6 +51,9 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
     private SessionState _sessionState = SessionState.Idle;
     private bool _transcriptionStarted = false;
     private long _totalChunksCreatedDuringRecording = 0;
+    private WaveFileWriter? _wavWriter;
+    private string? _recordingWavPath;
+    private readonly object _wavWriterLock = new();
     private long _framesEnqueued;
     private long _framesDequeued;
     private long _chunksEnqueued;
@@ -150,6 +153,7 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             _aggregator.Clear();
             _modelName = _activeSettings.ModelName;
             ResetMetrics();
+            _recordingWavPath = null;
             Interlocked.Exchange(ref _recordingElapsedTicks, 0);
             Interlocked.Exchange(ref _currentRecordingStartedUtcTicks, 0);
             Interlocked.Exchange(ref _captureOffsetBaseTicks, 0);
@@ -198,18 +202,25 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             _audioCaptureService.FrameCaptured += OnFrameCaptured;
             _audioCaptureService.WarningRaised += OnCaptureWarning;
 
-            _chunkerTask = RunChunkerAsync(_sessionCts.Token);
-
-            // Deferred transcription: nie startuj transcriberTask jeśli wyłączone
             if (_activeSettings.EnableDeferredTranscription)
             {
-                _transcriberTask = Task.CompletedTask;  // Placeholder, będzie startana ręcznie
+                // Deferred mode: record audio to WAV file on disk, no chunking/transcription
+                var safeName = Utilities.FilenameSanitizer.Sanitize(_sessionName);
+                var stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                _recordingWavPath = Path.Combine(_appPaths.TranscriptsDirectory, $"{safeName}_{stamp}.wav");
+                var wavFormat = new WaveFormat(16_000, 16, 1);
+                _wavWriter = new WaveFileWriter(_recordingWavPath, wavFormat);
+                _logger.LogInformation("Nagrywanie audio do: {WavPath}", _recordingWavPath);
+
+                _chunkerTask = RunRecorderAsync(_sessionCts.Token);
+                _transcriberTask = Task.CompletedTask;
                 _transcriptionStarted = false;
                 _totalChunksCreatedDuringRecording = 0;
-                _logger.LogInformation("Deferred transcription enabled - transkrypcja rozpocznie się manualnie");
             }
             else
             {
+                // Live mode: use chunk+transcribe pipeline AND also write to WAV
+                _chunkerTask = RunChunkerAsync(_sessionCts.Token);
                 _transcriberTask = RunTranscriberAsync(_sessionCts.Token);
                 _transcriptionStarted = true;
             }
@@ -354,13 +365,11 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             // W deferred mode, nie czekaj na transkrypcję - zostanie uruchomiona ręcznie
             if (_activeSettings?.EnableDeferredTranscription == true && !_transcriptionStarted)
             {
-                _totalChunksCreatedDuringRecording = Interlocked.Read(ref _chunksEnqueued);
                 SetSessionState(SessionState.Recorded);
                 RecordingStateChanged?.Invoke(this, false);
                 PublishUpdate();
-                _logger.LogInformation("Nagranie zakończone. Transkrypcja zostanie uruchomiona ręcznie. " +
-                    "Utworzono {ChunkCount} chunks.", _totalChunksCreatedDuringRecording);
-                // Nie zapisuj sesji do bazy jeszcze - będzie po transkrypcji
+                _logger.LogInformation("Nagranie zakończone. WAV: {WavPath}. Transkrypcja ręczna.",
+                    _recordingWavPath);
                 return;
             }
 
@@ -518,6 +527,44 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         finally
         {
             _chunkChannel.Writer.TryComplete(_pipelineError);
+        }
+    }
+
+    private async Task RunRecorderAsync(CancellationToken cancellationToken)
+    {
+        if (_frameChannel is null)
+            return;
+
+        try
+        {
+            await foreach (var frame in ReadFramesAsync(_frameChannel.Reader, cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var pcm16 = AudioConverter.ToPcm16Mono(frame, 16_000);
+                if (pcm16.Length == 0)
+                    continue;
+
+                lock (_wavWriterLock)
+                {
+                    _wavWriter?.Write(pcm16, 0, pcm16.Length);
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _pipelineError ??= ex;
+            _logger.LogError(ex, "Błąd w recorderze audio.");
+            WarningRaised?.Invoke(this, "Błąd nagrywania audio.");
+        }
+        finally
+        {
+            lock (_wavWriterLock)
+            {
+                _wavWriter?.Dispose();
+                _wavWriter = null;
+            }
         }
     }
 
@@ -955,7 +1002,7 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
 
     /// <summary>
     /// Ręcznie startuje transkrypcję dla nagrania w stanie "Recorded".
-    /// Używane w deferred transcription mode.
+    /// Używane w deferred transcription mode — czyta z pliku WAV.
     /// </summary>
     public async Task StartTranscriptionAsync()
     {
@@ -964,34 +1011,59 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         {
             if (CurrentState != SessionState.Recorded)
             {
-                _logger.LogWarning("Transkrypcja może być uruchomiona tylko z stanu 'Recorded', aktualny stan: {State}",
-                    CurrentState);
+                _logger.LogWarning("Transkrypcja tylko ze stanu 'Recorded', aktualny: {State}", CurrentState);
                 return;
             }
 
-            if (_transcriptionStarted)
+            if (_transcriptionStarted || string.IsNullOrEmpty(_recordingWavPath) || !File.Exists(_recordingWavPath))
             {
-                _logger.LogWarning("Transkrypcja została już uruchomiona");
-                return;
-            }
-
-            if (_sessionCts is null || _sessionCts.IsCancellationRequested)
-            {
-                _logger.LogError("Sesja została anulowana, transkrypcja niemożliwa");
+                _logger.LogError("Brak pliku WAV do transkrypcji: {Path}", _recordingWavPath);
                 return;
             }
 
             _transcriptionStarted = true;
             SetSessionState(SessionState.Transcribing);
-            _logger.LogInformation("Rozpoczęto ręczną transkrypcję. Total chunks: {TotalChunks}",
-                _totalChunksCreatedDuringRecording);
 
-            // Startuj transcriberTask jeśli jeszcze nie została uruchomiona
-            _transcriberTask = RunTranscriberAsync(_sessionCts.Token);
-            await _transcriberTask.ConfigureAwait(false);
+            var chunkLength = _activeSettings?.ChunkLengthSeconds ?? 10;
+            var silenceThreshold = Math.Clamp(_activeSettings?.SilenceRmsThreshold ?? 0.003f, 0.0005f, 0.05f);
 
-            // Po zakończeniu transkrypcji, zapisz sesję
+            // Estimate total chunks for progress
+            using (var wavInfo = new WaveFileReader(_recordingWavPath))
+            {
+                var totalSeconds = wavInfo.TotalTime.TotalSeconds;
+                _totalChunksCreatedDuringRecording = (long)Math.Ceiling(totalSeconds / chunkLength);
+            }
+
+            _logger.LogInformation("Rozpoczęto transkrypcję z WAV: {Path}, szacowane chunki: {Total}",
+                _recordingWavPath, _totalChunksCreatedDuringRecording);
+
+            var engine = _engineFactory.Create(_activeSettings!);
+            _engineType = engine.EngineName;
+            var modelPath = ResolveModelPath(_activeSettings!);
+
+            var request = new TranscriptionRequest
+            {
+                ModelName = _activeSettings!.ModelName,
+                ModelPath = modelPath,
+                Language = _activeSettings.Language,
+                AutoPunctuation = _activeSettings.AutoPunctuation
+            };
+
+            await foreach (var chunk in ReadChunksFromWavAsync(
+                _recordingWavPath, chunkLength, silenceThreshold, CancellationToken.None)
+                .ConfigureAwait(false))
+            {
+                var result = await engine.TranscribeAsync(chunk, request, CancellationToken.None)
+                    .ConfigureAwait(false);
+                Interlocked.Increment(ref _chunksProcessed);
+                _aggregator.Apply(result);
+                Interlocked.Increment(ref _transcriptVersion);
+                PublishUpdate();
+            }
+
+            // Save session
             var endUtc = DateTimeOffset.UtcNow;
+            var sessionDuration = GetRecordingElapsed();
             var transcript = BuildTranscriptTextFromSettings();
             var segments = _aggregator.Snapshot();
             var snapshot = new SessionSnapshot
@@ -1005,39 +1077,77 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
                 TranscriptText = transcript
             };
 
-            var files = await _transcriptFileWriter.WriteAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+            var files = await _transcriptFileWriter.WriteAsync(snapshot, CancellationToken.None)
+                .ConfigureAwait(false);
             var session = new SessionEntity
             {
                 Name = _sessionName,
                 StartTimeUtc = _sessionStartUtc,
                 EndTimeUtc = endUtc,
-                Duration = GetRecordingElapsed(),
+                Duration = sessionDuration,
                 MarkdownPath = files.MarkdownPath,
                 JsonPath = files.JsonPath,
                 TextPath = files.TextPath,
+                AudioPath = _recordingWavPath ?? string.Empty,
                 TranscriptText = transcript,
                 EngineType = _engineType,
                 ModelName = _modelName,
                 WordCount = CountWords(transcript)
             };
 
-            session.Id = await _sessionRepository.AddSessionAsync(session, CancellationToken.None).ConfigureAwait(false);
+            session.Id = await _sessionRepository.AddSessionAsync(session, CancellationToken.None)
+                .ConfigureAwait(false);
             SessionSaved?.Invoke(this, session);
 
             SetSessionState(SessionState.Completed);
             PublishUpdate();
+            _logger.LogInformation("Transkrypcja zakończona. WAV: {WavPath}", _recordingWavPath);
             CleanupState();
-            _logger.LogInformation("Transkrypcja i zapis sesji zakończone");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Błąd podczas transkrypcji ręcznej");
+            _logger.LogError(ex, "Błąd transkrypcji z WAV");
             _pipelineError = ex;
-            throw;
+            WarningRaised?.Invoke(this, $"Błąd transkrypcji: {ex.Message}");
         }
         finally
         {
             _lifecycleLock.Release();
+        }
+    }
+
+    private async IAsyncEnumerable<AudioChunk> ReadChunksFromWavAsync(
+        string wavPath,
+        int chunkLengthSeconds,
+        float silenceRmsThreshold,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var reader = new WaveFileReader(wavPath);
+        var sampleRate = reader.WaveFormat.SampleRate;
+        var bytesPerSecond = sampleRate * sizeof(short);
+        var chunkSizeBytes = chunkLengthSeconds * bytesPerSecond;
+        var buffer = new byte[chunkSizeBytes];
+        var sequence = 0;
+        var offset = TimeSpan.Zero;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var bytesRead = reader.Read(buffer, 0, chunkSizeBytes);
+            if (bytesRead == 0)
+                break;
+
+            var chunkData = new byte[bytesRead];
+            Array.Copy(buffer, chunkData, bytesRead);
+            var duration = TimeSpan.FromSeconds((double)bytesRead / bytesPerSecond);
+
+            if (!AudioConverter.IsSilentChunk(chunkData, silenceRmsThreshold))
+            {
+                yield return new AudioChunk(chunkData, sampleRate, offset, duration, sequence);
+            }
+
+            offset += duration;
+            sequence++;
         }
     }
 }

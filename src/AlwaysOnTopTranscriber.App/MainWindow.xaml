@@ -364,27 +364,6 @@
                                     <Slider x:Name="AudioBufferSlider" Margin="0,8,0,0" Minimum="256" Maximum="4096" TickFrequency="256" IsSnapToTickEnabled="True" Height="20" />
                                 </StackPanel>
 
-                                <!-- GPU Acceleration Settings -->
-                                <StackPanel Margin="0,12,0,0">
-                                    <CheckBox x:Name="EnableGpuAccelerationCheckBox" Content="Włącz GPU acceleration" VerticalAlignment="Top" Checked="EnableGpuAccelerationCheckBox_OnToggled" Unchecked="EnableGpuAccelerationCheckBox_OnToggled">
-                                        <CheckBox.ToolTip>
-                                            <ToolTip>Włącz przyspieszenie GPU dla transkrypcji. Działa na NVIDIA (CUDA). AMD Vega 8 i Intel na Windows automatycznie używają CPU.</ToolTip>
-                                        </CheckBox.ToolTip>
-                                    </CheckBox>
-
-                                    <StackPanel Margin="0,8,0,0" x:Name="GpuProviderPanel">
-                                        <TextBlock Text="Tryb GPU" FontSize="11" Foreground="#4B5563" />
-                                        <ComboBox x:Name="GpuProviderComboBox" Height="32" Margin="0,4,0,0" SelectionChanged="GpuProviderComboBox_OnSelectionChanged">
-                                            <ComboBoxItem Content="Auto-detect (zalecane)" Tag="auto" />
-                                            <ComboBoxItem Content="NVIDIA CUDA (RTX/GTX)" Tag="cuda" />
-                                            <ComboBoxItem Content="AMD ROCm (tylko Linux)" Tag="rocm" />
-                                            <ComboBoxItem Content="CPU (wyłącz GPU)" Tag="cpu" />
-                                        </ComboBox>
-                                        <TextBlock Margin="0,6,0,0" FontSize="10" Foreground="#6B7280" TextWrapping="Wrap"
-                                                   Text="AMD Vega 8 / Intel Arc na Windows → automatycznie CPU (brak wsparcia GPU dla tych kart w tej wersji)" />
-                                    </StackPanel>
-                                </StackPanel>
-
                                 <!-- Reset Button -->
                                 <Button x:Name="ResetAdvancedSettingsButton" Margin="0,12,0,0" Padding="8,6" Width="200" HorizontalAlignment="Left" Content="Przywróć ustawienia domyślne" Click="ResetAdvancedSettingsButton_OnClick" />
                             </StackPanel>

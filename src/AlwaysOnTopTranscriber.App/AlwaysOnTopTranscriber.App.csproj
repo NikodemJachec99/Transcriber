@@ -7,7 +7,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>AlwaysOnTopTranscriber.App</AssemblyName>
     <RootNamespace>AlwaysOnTopTranscriber.App</RootNamespace>
-    <!-- Ensure native runtimes (OpenVINO, CUDA) are included in publish for Windows x64 -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>

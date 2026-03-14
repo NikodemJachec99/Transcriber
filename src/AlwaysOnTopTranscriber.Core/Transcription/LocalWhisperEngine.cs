@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,63 +17,11 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
     private readonly AppSettings? _settings;
     private WhisperFactory? _factory;
     private string? _loadedModelPath;
-    private string? _detectedGpuProvider;
 
     public LocalWhisperEngine(ILogger<LocalWhisperEngine> logger, AppSettings? settings = null)
     {
         _logger = logger;
         _settings = settings;
-        _detectedGpuProvider = DetectGpuProvider();
-
-        // Configure ONNX Runtime environment variables for GPU acceleration
-        ConfigureGpuEnvironmentVariables();
-    }
-
-    private void ConfigureGpuEnvironmentVariables()
-    {
-        try
-        {
-            // Clear any existing GPU environment variables to ensure clean state
-            Environment.SetEnvironmentVariable("ORT_CUDA_DEVICE_ID", null);
-            Environment.SetEnvironmentVariable("ORT_DIRECTML_DEVICE_ID", null);
-
-            if (_settings?.TryGpuAcceleration != true || _settings.GpuProvider == "cpu")
-            {
-                _logger.LogInformation("GPU acceleration disabled or forced to CPU - will use Whisper.net CPU runtime");
-                return;
-            }
-
-            var gpuProvider = _settings.GpuProvider;
-            if (gpuProvider == "auto")
-            {
-                gpuProvider = _detectedGpuProvider;
-            }
-
-            switch (gpuProvider)
-            {
-                case "cuda":
-                    Environment.SetEnvironmentVariable("ORT_CUDA_DEVICE_ID", "0");
-                    _logger.LogInformation("✓ GPU configured: CUDA (NVIDIA RTX/GTX) - Whisper.net.Runtime.Cuda required");
-                    break;
-                case "openvino":
-                    _logger.LogWarning("OpenVINO is not currently available (packaging issues in Whisper.net 1.9.0). Falling back to CPU mode. TODO: Re-enable in future version.");
-                    break;
-                case "directml":
-                    // Note: DirectML is not directly exposed in Whisper.net; use OpenVINO instead on Windows for AMD/Intel
-                    _logger.LogInformation("⚠ DirectML not directly supported in Whisper.net - falling back to OpenVINO or CPU");
-                    break;
-                case "rocm":
-                    _logger.LogInformation("✓ GPU configured: ROCm (AMD Linux)");
-                    break;
-                default:
-                    _logger.LogInformation("GPU acceleration not configured - will use CPU");
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error configuring GPU environment variables - will fallback to CPU");
-        }
     }
 
     public string EngineName => "LocalWhisper";
@@ -105,7 +51,7 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
         // Tworzymy procesor per chunk, bo to bezpieczny i przewidywalny model pracy dla długich sesji.
         using var processor = builder.Build();
 
-        // Time transcription to detect GPU usage
+        // Time transcription for logging
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         await foreach (var result in processor.ProcessAsync(waveStream).WithCancellation(cancellationToken)
@@ -124,17 +70,15 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
 
         sw.Stop();
 
-        // Log transcription timing - GPU will be significantly faster
+        // Log transcription timing
         var audioSeconds = chunk.Duration.TotalSeconds;
         var realTimeRatio = sw.Elapsed.TotalSeconds / audioSeconds;
-        var gpuIndicator = realTimeRatio < 0.5 ? " [GPU DETECTED ✓]" : "";
 
         _logger.LogInformation(
-            "Transcribed {AudioSeconds:F1}s audio in {ElapsedMs}ms ({RealtimeRatio:F2}x){GpuIndicator}",
+            "Transcribed {AudioSeconds:F1}s audio in {ElapsedMs}ms ({RealtimeRatio:F2}x)",
             audioSeconds,
             sw.ElapsedMilliseconds,
-            realTimeRatio,
-            gpuIndicator);
+            realTimeRatio);
 
         return new TranscriptionChunkResult
         {
@@ -162,24 +106,9 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
 
             _factory?.Dispose();
 
-            // Enable GPU if configured - REQUIRED for CUDA to work in Whisper.net
-            var factoryOptions = new WhisperFactoryOptions
-            {
-                UseGpu = _settings?.TryGpuAcceleration == true,
-                GpuDevice = 0
-            };
-
-            _factory = WhisperFactory.FromPath(modelPath, factoryOptions);
+            _factory = WhisperFactory.FromPath(modelPath);
             _loadedModelPath = modelPath;
-
-            if (factoryOptions.UseGpu)
-            {
-                _logger.LogInformation("Załadowano model Whisper z GPU acceleration: {ModelPath}", modelPath);
-            }
-            else
-            {
-                _logger.LogInformation("Załadowano model Whisper (CPU mode): {ModelPath}", modelPath);
-            }
+            _logger.LogInformation("Załadowano model Whisper: {ModelPath}", modelPath);
         }
         finally
         {
@@ -215,142 +144,5 @@ public sealed class LocalWhisperEngine : ITranscriptionEngine, IDisposable
 
         stream.Position = 0;
         return stream;
-    }
-
-    /// <summary>
-    /// Detectuje dostępny GPU provider (CUDA, ROCm, CPU).
-    /// Wymagane: Whisper.net.Runtime.Cuda dla CUDA acceleration.
-    /// OpenVINO support disabled temporarily (Whisper.net 1.9.0 packaging issues).
-    /// Loguje znaleziony provider. Wsparcie GPU jest opcjonalne - fallback na CPU.
-    /// </summary>
-    private string DetectGpuProvider()
-    {
-        // Jeśli użytkownik wymusił CPU, wykorzystaj CPU
-        if (_settings?.TryGpuAcceleration == false ||
-            (_settings?.GpuProvider?.Equals("cpu", StringComparison.OrdinalIgnoreCase) == true))
-        {
-            _logger.LogInformation("GPU acceleration wyłączony przez użytkownika - CPU mode");
-            return "cpu";
-        }
-
-        try
-        {
-            // Automatyczna detekcja
-            var detectedProvider = TryDetectGpu();
-            _logger.LogInformation("GPU Provider: {Provider}", detectedProvider);
-            return detectedProvider;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Błąd przy detectowaniu GPU - fallback to CPU");
-            return "cpu";
-        }
-    }
-
-    /// <summary>
-    /// Próbuje detectować dostępny GPU na podstawie systemu operacyjnego i zainstalowanych bibliotek.
-    /// </summary>
-    private string TryDetectGpu()
-    {
-        // Na Windows - spróbuj CUDA (NVIDIA) lub OpenVINO (AMD/Intel)
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            // Spróbuj znaleźć NVIDIA GPU - najlepsze wsparcie
-            if (HasWindowsGpu("NVIDIA"))
-            {
-                _logger.LogInformation("Detectowano GPU: NVIDIA - będzie używany CUDA");
-                return "cuda";
-            }
-
-            // AMD Vega/RDNA - OpenVINO not available in current Whisper.net version
-            if (HasWindowsGpu("AMD"))
-            {
-                _logger.LogWarning("Detectowano GPU: AMD (Vega, RDNA), ale OpenVINO nie jest dostępne. Będzie używany CPU mode. TODO: Add OpenVINO support");
-                return "cpu";
-            }
-
-            // Intel Arc - OpenVINO not available in current Whisper.net version
-            if (HasWindowsGpu("Intel"))
-            {
-                _logger.LogWarning("Detectowano GPU: Intel Arc, ale OpenVINO nie jest dostępne. Będzie używany CPU mode. TODO: Add OpenVINO support");
-                return "cpu";
-            }
-
-            _logger.LogInformation("Brak detectowanego GPU - użycie CPU");
-            return "cpu";
-        }
-
-        // Na Linux - spróbuj ROCm (AMD)
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            if (File.Exists("/opt/rocm/bin/rocm_agent_enumerator"))
-            {
-                _logger.LogInformation("Detectowano ROCm na Linuxie - AMD GPU");
-                return "rocm";
-            }
-
-            _logger.LogInformation("Brak AMD ROCm - użycie CPU");
-            return "cpu";
-        }
-
-        // Na macOS - CoreML (Apple Silicon)
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            _logger.LogInformation("macOS detectowany - będzie używany CoreML na Apple Silicon jeśli dostępny");
-            return "coreml";
-        }
-
-        return "cpu";
-    }
-
-    /// <summary>
-    /// Sprawdza czy zainstalowany jest sprzęt GPU danego producenta (Windows only).
-    /// Używa WMI/PowerShell do zdobycia informacji o GPU.
-    /// </summary>
-    private bool HasWindowsGpu(string vendor)
-    {
-        try
-        {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                return false;
-            }
-
-            // Spróbuj uruchomić PowerShell aby sprawdzić GPU
-            using var proc = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = @"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
-                    Arguments = "-NoProfile -Command \"Get-WmiObject Win32_VideoController | Select-Object -ExpandProperty Name\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8
-                }
-            };
-
-            proc.Start();
-            var output = proc.StandardOutput.ReadToEnd();
-            bool exited = proc.WaitForExit(5000);  // Increased timeout to 5 seconds
-
-            if (!exited)
-            {
-                _logger.LogWarning("PowerShell GPU detection timeout after 5 seconds for vendor: {Vendor}", vendor);
-                try { proc.Kill(); } catch { }
-                return false;
-            }
-
-            _logger.LogDebug("PowerShell GPU output: {Output}", output);
-            bool found = output.Contains(vendor, StringComparison.OrdinalIgnoreCase);
-            _logger.LogDebug("GPU detection for vendor {Vendor}: {Found}", vendor, found);
-
-            return found;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Nie można detectować GPU {Vendor}", vendor);
-            return false;
-        }
     }
 }

@@ -83,6 +83,8 @@ public sealed class SessionRepository : ISessionRepository
             .ConfigureAwait(false);
         await EnsureColumnExistsAsync(connection, "sessions", "txt_path", "TEXT NOT NULL DEFAULT ''", cancellationToken)
             .ConfigureAwait(false);
+        await EnsureColumnExistsAsync(connection, "sessions", "audio_path", "TEXT NOT NULL DEFAULT ''", cancellationToken)
+            .ConfigureAwait(false);
 
         try
         {
@@ -144,10 +146,10 @@ public sealed class SessionRepository : ISessionRepository
         command.CommandText =
             """
             INSERT INTO sessions (
-                name, start_time_utc, end_time_utc, duration_seconds, markdown_path, json_path, txt_path,
+                name, start_time_utc, end_time_utc, duration_seconds, markdown_path, json_path, txt_path, audio_path,
                 transcript_text, engine_type, model_name, word_count, notes, tags
             ) VALUES (
-                $name, $start, $end, $duration, $markdown, $json, $txt, $text, $engine, $model, $words, $notes, $tags
+                $name, $start, $end, $duration, $markdown, $json, $txt, $audio, $text, $engine, $model, $words, $notes, $tags
             );
             SELECT last_insert_rowid();
             """;
@@ -158,6 +160,7 @@ public sealed class SessionRepository : ISessionRepository
         command.Parameters.AddWithValue("$markdown", session.MarkdownPath);
         command.Parameters.AddWithValue("$json", session.JsonPath);
         command.Parameters.AddWithValue("$txt", session.TextPath);
+        command.Parameters.AddWithValue("$audio", session.AudioPath);
         command.Parameters.AddWithValue("$text", session.TranscriptText);
         command.Parameters.AddWithValue("$engine", session.EngineType);
         command.Parameters.AddWithValue("$model", session.ModelName);
@@ -296,7 +299,8 @@ public sealed class SessionRepository : ISessionRepository
             ModelName = reader.GetString(10),
             WordCount = reader.GetInt32(11),
             Notes = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-            Tags = reader.IsDBNull(13) ? string.Empty : reader.GetString(13)
+            Tags = reader.IsDBNull(13) ? string.Empty : reader.GetString(13),
+            AudioPath = reader.IsDBNull(14) ? string.Empty : reader.GetString(14)
         };
     }
 
@@ -330,7 +334,7 @@ public sealed class SessionRepository : ISessionRepository
         command.CommandText =
             $"""
              SELECT s.id, s.name, s.start_time_utc, s.end_time_utc, s.duration_seconds, s.markdown_path, s.json_path, s.txt_path,
-                    s.transcript_text, s.engine_type, s.model_name, s.word_count, s.notes, s.tags
+                    s.transcript_text, s.engine_type, s.model_name, s.word_count, s.notes, s.tags, s.audio_path
              FROM sessions s
              INNER JOIN sessions_fts fts ON s.id = fts.rowid
              WHERE {string.Join(" AND ", whereParts)}
@@ -361,7 +365,7 @@ public sealed class SessionRepository : ISessionRepository
         command.CommandText =
             $"""
              SELECT s.id, s.name, s.start_time_utc, s.end_time_utc, s.duration_seconds, s.markdown_path, s.json_path, s.txt_path,
-                    s.transcript_text, s.engine_type, s.model_name, s.word_count, s.notes, s.tags
+                    s.transcript_text, s.engine_type, s.model_name, s.word_count, s.notes, s.tags, s.audio_path
              FROM sessions s
              {whereSql}
              ORDER BY s.start_time_utc DESC;

@@ -54,22 +54,6 @@ public partial class MainWindow : Window
         SelectLanguage(_settings.Language);
         EnableLiveTranscriptCheckBox.IsChecked = _settings.EnableLiveTranscript;
 
-        // Initialize GPU settings
-        EnableGpuAccelerationCheckBox.IsChecked = _settings.TryGpuAcceleration;
-        GpuProviderPanel.IsEnabled = _settings.TryGpuAcceleration;
-
-        // Set GPU provider combobox to current setting
-        // Options: 0=auto, 1=cuda, 2=rocm, 3=cpu
-        // Note: "directml" is no longer supported (packaging issues) - falls back to "auto"
-        var gpuProviderIndex = _settings.GpuProvider switch
-        {
-            "cuda" => 1,
-            "rocm" => 2,
-            "cpu" => 3,
-            _ => 0 // default "auto" (also covers legacy "directml" saved in settings)
-        };
-        GpuProviderComboBox.SelectedIndex = gpuProviderIndex;
-
         // Initialize advanced settings
         ChunkLengthSlider.Value = _settings.ChunkLengthSeconds;
         ChunkLengthValueTextBlock.Text = $"{_settings.ChunkLengthSeconds}s";
@@ -177,14 +161,6 @@ public partial class MainWindow : Window
         _settings.EnableLiveTranscript = EnableLiveTranscriptCheckBox.IsChecked ?? true;
         _settings.ChunkLengthSeconds = (int)ChunkLengthSlider.Value;
         _settings.MaxBufferedAudioFrames = (int)AudioBufferSlider.Value;
-        _settings.TryGpuAcceleration = EnableGpuAccelerationCheckBox.IsChecked ?? true;
-
-        // Save GPU provider from combobox
-        var selectedGpuItem = GpuProviderComboBox.SelectedItem as ComboBoxItem;
-        if (selectedGpuItem?.Tag is string gpuProvider)
-        {
-            _settings.GpuProvider = gpuProvider;
-        }
 
         await _settingsService.SaveAsync(_settings, CancellationToken.None);
         FooterStatusTextBlock.Text = "Ustawienia zapisane.";
@@ -288,29 +264,7 @@ public partial class MainWindow : Window
         AudioBufferSlider.Value = 2048; // Default from AppSettings
         ChunkLengthValueTextBlock.Text = "10s";
         AudioBufferValueTextBlock.Text = "2048";
-        EnableGpuAccelerationCheckBox.IsChecked = true;
-        GpuProviderComboBox.SelectedIndex = 0; // Auto-detect
         FooterStatusTextBlock.Text = "Ustawienia zaawansowane przywrócone do wartości domyślnych.";
-    }
-
-    private void EnableGpuAccelerationCheckBox_OnToggled(object sender, RoutedEventArgs e)
-    {
-        var isEnabled = EnableGpuAccelerationCheckBox.IsChecked == true;
-        GpuProviderPanel.IsEnabled = isEnabled;
-        _settings.TryGpuAcceleration = isEnabled;
-        FooterStatusTextBlock.Text = isEnabled
-            ? "GPU acceleration: włączony"
-            : "GPU acceleration: wyłączony";
-    }
-
-    private void GpuProviderComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        var selectedItem = GpuProviderComboBox.SelectedItem as ComboBoxItem;
-        if (selectedItem?.Tag is string provider)
-        {
-            _settings.GpuProvider = provider;
-            FooterStatusTextBlock.Text = $"GPU Provider wybrany: {selectedItem.Content}";
-        }
     }
 
     private void LiveTranscriptQuickToggle_OnToggled(object sender, RoutedEventArgs e)
