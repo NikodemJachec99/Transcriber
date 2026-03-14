@@ -365,6 +365,29 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
             // W deferred mode, nie czekaj na transkrypcję - zostanie uruchomiona ręcznie
             if (_activeSettings?.EnableDeferredTranscription == true && !_transcriptionStarted)
             {
+                // Calculate estimated chunk count from WAV file for UI progress
+                if (!string.IsNullOrEmpty(_recordingWavPath) && File.Exists(_recordingWavPath))
+                {
+                    try
+                    {
+                        using var wavInfo = new WaveFileReader(_recordingWavPath);
+                        var chunkLength = _activeSettings?.ChunkLengthSeconds ?? 10;
+                        var totalSeconds = wavInfo.TotalTime.TotalSeconds;
+                        _totalChunksCreatedDuringRecording = Math.Max(1, (long)Math.Ceiling(totalSeconds / chunkLength));
+                        _logger.LogInformation("WAV: {Seconds:F1}s, szacowane chunki: {Chunks}",
+                            totalSeconds, _totalChunksCreatedDuringRecording);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Nie udało się odczytać WAV dla szacowania chunków");
+                        _totalChunksCreatedDuringRecording = 1; // Fallback — przynajmniej pokaż przycisk
+                    }
+                }
+                else
+                {
+                    _totalChunksCreatedDuringRecording = 1; // Fallback
+                }
+
                 SetSessionState(SessionState.Recorded);
                 RecordingStateChanged?.Invoke(this, false);
                 PublishUpdate();
@@ -626,7 +649,10 @@ public sealed class TranscriptionSessionService : ITranscriptionSessionService, 
         var (segments, previewLines, fullText) = GetCachedTranscriptView(mode, separator, previewNewestFirst);
 
         var isTranscribingDeferred = CurrentState == SessionState.Transcribing;
-        var totalChunks = isTranscribingDeferred ? (int)_totalChunksCreatedDuringRecording : (int)Interlocked.Read(ref _chunksEnqueued);
+        var isDeferredReady = CurrentState == SessionState.Recorded;
+        var totalChunks = (isTranscribingDeferred || isDeferredReady)
+            ? (int)_totalChunksCreatedDuringRecording
+            : (int)Interlocked.Read(ref _chunksEnqueued);
         var transcribedChunks = (int)Interlocked.Read(ref _chunksProcessed);
 
         var update = new LiveTranscriptUpdate
